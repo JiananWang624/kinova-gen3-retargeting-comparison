@@ -3,8 +3,9 @@
 `scripts/replay_compare.py` replays stored Phase 7 configurations. It reads the
 original human CSV through `prepare_trajectory()` and requires a matching
 method/frame row in `comparison_frames.csv`; it never runs IK during normal
-playback. This is important for Method 2 because event-aware Exact-SEW solving
-currently takes about four seconds per frame.
+playback. This is important for Method 2 because optimized event-aware
+Exact-SEW solving still took about 2.4 seconds per frame in the latest ten-frame
+Windows validation.
 
 Before opening the viewer, replay runs the Phase 7 authoritative evaluator on
 each stored successful q and rejects stale results whose position,

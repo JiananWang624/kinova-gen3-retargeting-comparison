@@ -27,6 +27,11 @@ from ..sew import (
     sample_gen3_configurations,
 )
 from .residuals import ExactSewResiduals, robot_exact_sew_residuals
+from .acceptance import (
+    ORIENTATION_ACCEPTANCE_RAD,
+    POSITION_ACCEPTANCE_M,
+    SEW_ACCEPTANCE_RAD,
+)
 
 Vector = NDArray[np.float64]
 _PENALTY = 1e6
@@ -38,9 +43,9 @@ class NumericalOracleConfig:
     position_scale_m: float = 0.1
     orientation_scale_rad: float = 0.2
     sew_scale_rad: float = 0.2
-    exact_position_m: float = 1e-6
-    exact_orientation_rad: float = 1e-6
-    exact_sew_rad: float = 1e-5
+    exact_position_m: float = POSITION_ACCEPTANCE_M
+    exact_orientation_rad: float = ORIENTATION_ACCEPTANCE_RAD
+    exact_sew_rad: float = SEW_ACCEPTANCE_RAD
     xtol: float = 1e-12
     ftol: float = 1e-12
     gtol: float = 1e-12

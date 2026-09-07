@@ -200,6 +200,8 @@ def run_benchmark(
     compare_exact_policies: bool = False,
     oracle_max_frames: int = 10,
     search_config: R2R2R2RSearchConfig = R2R2R2RSearchConfig(),
+    timing_enabled: bool = False,
+    timing_report_every_n_frames: int = 10,
 ) -> BenchmarkResult:
     """Run executable methods, with Method 3 limited to a leading subset.
 
@@ -217,6 +219,14 @@ def run_benchmark(
         raise ValueError("oracle_max_frames must be at least 1")
     if not isinstance(search_config, R2R2R2RSearchConfig):
         raise ValueError("search_config must be R2R2R2RSearchConfig")
+    if not isinstance(timing_enabled, bool):
+        raise ValueError("timing_enabled must be a bool")
+    if (
+        isinstance(timing_report_every_n_frames, bool)
+        or not isinstance(timing_report_every_n_frames, int)
+        or timing_report_every_n_frames < 1
+    ):
+        raise ValueError("timing_report_every_n_frames must be a positive integer")
 
     rows: list[EvaluationRow] = []
     q_legacy = np.zeros(7)
@@ -231,8 +241,12 @@ def run_benchmark(
     oracle_frames = {
         item.frame for item in trajectory.frames[:oracle_max_frames]
     }
+    timing_block_elapsed = 0.0
+    timing_block_count = 0
+    timing_block_start = 1
 
     for item in trajectory.frames:
+        frame_started = time.perf_counter() if timing_enabled else 0.0
         target = item.target
         if "sew_mimic" in selected:
             method_started = time.perf_counter()
@@ -392,6 +406,28 @@ def run_benchmark(
                     trajectory.stereo,
                 )
             )
+
+        if timing_enabled:
+            timing_block_elapsed += time.perf_counter() - frame_started
+            timing_block_count += 1
+            if timing_block_count == timing_report_every_n_frames:
+                average_ms = 1000.0 * timing_block_elapsed / timing_block_count
+                print(
+                    f"[timing] frames {timing_block_start}-"
+                    f"{timing_block_start + timing_block_count - 1}: "
+                    f"average {average_ms:.3f} ms/frame"
+                )
+                timing_block_start += timing_block_count
+                timing_block_elapsed = 0.0
+                timing_block_count = 0
+
+    if timing_enabled and timing_block_count:
+        average_ms = 1000.0 * timing_block_elapsed / timing_block_count
+        print(
+            f"[timing] frames {timing_block_start}-"
+            f"{timing_block_start + timing_block_count - 1}: "
+            f"average {average_ms:.3f} ms/frame"
+        )
 
     rows.sort(key=lambda row: (row.frame, row.method))
     return BenchmarkResult(tuple(rows), summarize_rows(rows))

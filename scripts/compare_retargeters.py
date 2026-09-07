@@ -14,12 +14,36 @@ from sew_mimic.common.task_point import (  # noqa: E402
     DEFAULT_HUMAN_WRIST_TO_TASK_OFFSET_M,
     DEFAULT_TASK_POINT_MODE,
 )
+from sew_mimic.config import load_config  # noqa: E402
 from sew_mimic.exact import R2R2R2RSearchConfig  # noqa: E402
 from sew_mimic.pipeline import (  # noqa: E402
     capability_metadata,
     prepare_trajectory,
     run_benchmark,
 )
+
+
+def _timing_settings() -> tuple[bool, int]:
+    """Read and validate compare-retargeter timing settings from config.yaml."""
+    config = load_config()
+    benchmark_config = config.get("benchmark")
+    timing_config = (
+        benchmark_config.get("timing")
+        if isinstance(benchmark_config, dict)
+        else None
+    )
+    if not isinstance(timing_config, dict):
+        raise ValueError("config.yaml benchmark.timing must be a mapping")
+    enabled = timing_config.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ValueError("config.yaml benchmark.timing.enabled must be a bool")
+    every = timing_config.get("report_every_n_frames")
+    if isinstance(every, bool) or not isinstance(every, int) or every < 1:
+        raise ValueError(
+            "config.yaml benchmark.timing.report_every_n_frames "
+            "must be a positive integer"
+        )
+    return enabled, every
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -54,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     input_path = args.input or args.input_positional
     if input_path is None:
         parser.error("--input is required")
+    timing_enabled, timing_report_every_n_frames = _timing_settings()
     search_config = R2R2R2RSearchConfig()
     prepared = prepare_trajectory(
         input_path,
@@ -68,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         compare_exact_policies=args.compare_exact_policies,
         oracle_max_frames=args.oracle_max_frames,
         search_config=search_config,
+        timing_enabled=timing_enabled,
+        timing_report_every_n_frames=timing_report_every_n_frames,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     frame_output = args.output_dir / "comparison_frames.csv"

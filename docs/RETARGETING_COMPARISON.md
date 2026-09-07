@@ -27,9 +27,10 @@ Add `numerical_oracle --oracle-max-frames 10` to the method list to validate a
 deterministic leading subset of the same selected frames. Method 3 does not run
 on every frame unless the requested subset covers every selected frame.
 
-Use `--all` intentionally for a complete trajectory. The event-aware Method 2
-solver currently takes about 3.8 seconds per frame, so a full 4,344-frame run
-is not part of normal validation. `--exact-branch-policy` chooses canonical or
+Use `--all` intentionally for a complete trajectory. The optimized event-aware
+Method 2 solver averaged about 2.4 seconds per frame in the latest ten-frame
+Windows validation, so a full 4,344-frame run is not part of normal validation.
+`--exact-branch-policy` chooses canonical or
 continuous selection; `--compare-exact-policies` emits both labels while
 sharing candidate enumeration. Continuous is recommended for trajectories. It
 keeps the most recently successful joint configuration across failures; a

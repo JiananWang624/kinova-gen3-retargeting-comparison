@@ -78,8 +78,9 @@ Compare Method 0, recommended Method 2, and the bounded Method 3 oracle:
 ```
 
 This writes regenerable `output/comparison_frames.csv` and
-`output/comparison_summary.json`. Method 2 currently takes approximately four
-seconds per frame, so bounded validation is the normal workflow.
+`output/comparison_summary.json`. The optimized Method 2 backend averaged about
+2.4 seconds per frame in the latest ten-frame Windows validation, so bounded
+validation remains the normal workflow.
 
 Replay precomputed Method 2 results interactively:
 

@@ -8,6 +8,11 @@ from sew_mimic.exact.branch_selection import (
     candidate_branch_id,
     select_exact_sew_branch,
 )
+from sew_mimic.exact.acceptance import (
+    ORIENTATION_ACCEPTANCE_RAD,
+    POSITION_ACCEPTANCE_M,
+    SEW_ACCEPTANCE_RAD,
+)
 from sew_mimic.exact.stereo_backend import ExactSewCandidate, ExactSewCandidateSet
 
 
@@ -71,15 +76,30 @@ def test_continuous_uses_wrapped_joint_distance_and_first_frame_is_canonical():
 def test_selection_failure_mapping_and_invalid_previous():
     assert select_exact_sew_branch(_set(_candidate(0, exact=False))).status is SolverStatus.NO_VALID_BRANCH
     assert select_exact_sew_branch(_set(_candidate(0, valid=False))).status is SolverStatus.JOINT_LIMIT
-    assert select_exact_sew_branch(_set(_candidate(0, position=1e-6))).status is SolverStatus.NUMERICAL_FAILURE
+    assert select_exact_sew_branch(_set(_candidate(0, position=POSITION_ACCEPTANCE_M))).status is SolverStatus.NUMERICAL_FAILURE
     with pytest.raises(ValueError, match="q_previous"):
         select_exact_sew_branch(_set(_candidate(0)), q_previous=np.zeros(6))
     with pytest.raises(ValueError, match="branch_policy"):
         select_exact_sew_branch(_set(_candidate(0)), branch_policy="other")
 
 
+@pytest.mark.parametrize(
+    ("field", "boundary"),
+    (
+        ("position", POSITION_ACCEPTANCE_M),
+        ("orientation", ORIENTATION_ACCEPTANCE_RAD),
+        ("sew", SEW_ACCEPTANCE_RAD),
+    ),
+)
+def test_project_acceptance_thresholds_are_strict(field, boundary):
+    kwargs = {field: boundary}
+    assert select_exact_sew_branch(_set(_candidate(0, **kwargs))).status is SolverStatus.NUMERICAL_FAILURE
+    kwargs[field] = boundary * (1.0 - 1e-12)
+    assert select_exact_sew_branch(_set(_candidate(0, **kwargs))).status is SolverStatus.SUCCESS_EXACT
+
+
 def test_invalid_residual_candidate_does_not_poison_valid_selectable_candidate():
-    invalid = _candidate(0, margin=1.0, position=1e-6)
+    invalid = _candidate(0, margin=1.0, position=POSITION_ACCEPTANCE_M)
     valid = _candidate(1, margin=.1)
     outcome = select_exact_sew_branch(_set(invalid, valid))
     assert outcome.status is SolverStatus.SUCCESS_EXACT

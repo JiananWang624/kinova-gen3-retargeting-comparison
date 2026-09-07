@@ -24,16 +24,23 @@ SP3 feasible intervals, then q23 children, then q45 children, and evaluates
 alignment only in q45 leaves. Defaults are 64 initial partitions, depth 24,
 minimum width `1e-12 rad`, a 50,000-callback cap for each bounded event
 localization, feasibility boundary xtol `1e-12`, alignment xtol `1e-15`, and
-alignment construction residual tolerance `1e-8`. Candidate diagnostics
-aggregate actual evaluations and budget exhaustion across the hierarchy.
+alignment construction residual tolerance `1e-8`. These search values remain
+unchanged because looser experimental values dropped validated tangent and
+near-limit branches. Candidate diagnostics aggregate actual evaluations and
+budget exhaustion across the hierarchy.
 
 LS values may be used only as continuous trace witnesses during event
 localization. They never become candidates: each root recomputes strict
 subproblems, then checks real MuJoCo-derived pinch position/orientation and
-Stereo-SEW psi against `1e-6 m`, `1e-6 rad`, and `1e-5 rad`. Unlimited joints
+Stereo-SEW psi against the project limits of `1e-3 m`, `1 degree`, and
+`1 degree`. Unlimited joints
 wrap to `[-pi,pi)`; limited joints choose a deterministic equivalent `q+2pi*k`
 only when integer bounds derived from the actual interval admit it. Nothing is
-clipped. Candidates order by wrist angle, slot, then q.
+clipped. Candidates order by wrist angle, slot, then q. Target-invariant
+geometry is computed once per enumeration, exact repeated angle evaluations
+are cached within that frame, and alignment leaves compute only their requested
+lexical slot. These changes reduce duplicate work without changing coverage or
+subproblem equations.
 
 ## Departure from the reference fixed-grid root discovery
 

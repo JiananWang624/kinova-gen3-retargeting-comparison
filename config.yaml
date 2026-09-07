@@ -53,6 +53,12 @@ stereo_sew:
   e_t: [0.0, 0.0, -1.0]
   e_r: [1.0, 0.0, 0.0]
 
+benchmark:
+  # Print elapsed compute time while compare_retargeters.py processes frames.
+  timing:
+    enabled: true
+    report_every_n_frames: 10
+
 replay_csv:
   # 完整 CSV retarget 后关节角和误差的默认输出文件。
   output_path: output/test_retargeted_mounted.csv

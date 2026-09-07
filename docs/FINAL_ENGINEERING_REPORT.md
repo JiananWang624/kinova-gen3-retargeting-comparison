@@ -135,7 +135,8 @@ manual smoke test.
 
 ## Known limitations and release conclusion
 
-- Event-aware Method 2 remains approximately four seconds per frame.
+- Optimized event-aware Method 2 remains approximately 2.4 seconds per frame in
+  the latest short Windows validation and is not real-time.
 - `Wrist_XYZ` anatomical meaning is dataset-dependent unless calibrated.
 - Generic fixed-link WARP cannot be applied exactly to the current Gen3 model.
 - Visualization normally requires precomputed Method 2 results.

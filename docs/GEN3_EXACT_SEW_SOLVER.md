@@ -29,9 +29,9 @@ selects one branch. A selectable candidate must be marked exact, possess a
 valid joint-limit representative, and satisfy the authoritative MuJoCo
 pinch-site thresholds:
 
-- position error `< 1e-6 m`
-- orientation error `< 1e-6 rad`
-- Stereo-SEW error `< 1e-5 rad`
+- position error `< 1e-3 m` (1 mm)
+- orientation error `< 1 degree`
+- Stereo-SEW error `< 1 degree`
 
 Method 2 only returns `SUCCESS_EXACT`; it never returns `SUCCESS_APPROX`.
 Approximate subproblem results, clipping, numerical refinement, and numerical
@@ -100,6 +100,8 @@ joint-limit margin was `0.133333 rad`. Candidate count was exactly eight on
 every frame. A deterministic 10-frame oracle subset produced 10 oracle-exact /
 Method-2-exact results and no production misses.
 
-The roughly 3.8-second mean solve time is the known Phase-5A event-aware
-search cost and remains a performance limitation. Phase 5B does not optimize
-that search.
+The table above records the original pre-optimization validation. The backend
+now hoists target invariants, caches exact repeated angle evaluations within a
+frame, and evaluates only the requested alignment slot. A ten-frame rerun in
+the validated Windows environment averaged about 2.4 seconds per frame;
+runtime remains environment-dependent and a full trajectory is still expensive.

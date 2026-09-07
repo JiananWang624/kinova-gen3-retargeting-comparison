@@ -98,11 +98,11 @@ R_pinch(q) @ R_robot_align = H_h
 psi_robot(q) = psi_h
 ```
 
-An exact candidate must satisfy strict authoritative thresholds:
+An exact candidate must satisfy the project acceptance thresholds:
 
-- position error `< 1e-6 m`
-- orientation error `< 1e-6 rad`
-- Stereo-SEW error `< 1e-5 rad`
+- position error `< 1e-3 m` (1 mm)
+- orientation error `< 1 degree`
+- Stereo-SEW error `< 1 degree`
 
 Method 2 returns only `SUCCESS_EXACT` for accepted configurations; it never
 labels least-squares output exact. Failures retain explicit shared statuses and
@@ -117,9 +117,9 @@ selection. Canonical selection is deterministic and history-free; continuous
 selection greedily chooses the wrapped nearest configuration to the last
 successful `q`.
 
-Known performance limitation: event-aware Method 2 takes approximately four
-seconds per frame in the validated environment. Do not run all 4,344 input
-frames as routine validation.
+The optimized backend averaged about 2.4 seconds per frame on a ten-frame
+validation in the validated Windows environment. Runtime remains
+environment-dependent; do not run all 4,344 input frames as routine validation.
 
 ## Reproduction commands
 
@@ -140,7 +140,8 @@ and does not run IK.
 
 ## Known remaining limitations
 
-- Method 2 event-aware runtime is approximately four seconds per frame.
+- Method 2 event-aware runtime remains approximately 2.4 seconds per frame in
+  the latest short validation and is still unsuitable for real-time control.
 - The anatomical meaning of `Wrist_XYZ` is dataset-dependent until calibrated.
 - Generic WARP cannot be applied exactly to the current fixed-link Gen3 model.
 - Visualization normally requires precomputed Method 2 results.

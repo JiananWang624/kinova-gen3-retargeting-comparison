@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import sew_mimic.exact.numerical_oracle as numerical_oracle
 import sew_mimic.pipeline.benchmark as benchmark
@@ -119,6 +120,29 @@ def test_method0_pipeline_matches_direct_legacy_adapter():
     assert np.isfinite(row.solve_time_ms)
     if direct.q is not None:
         np.testing.assert_allclose(row.q, direct.q)
+
+
+def test_benchmark_timing_reports_complete_and_partial_blocks(capsys):
+    prepared = _prepared(3)
+    benchmark.run_benchmark(
+        prepared,
+        methods=("sew_mimic",),
+        timing_enabled=True,
+        timing_report_every_n_frames=2,
+    )
+    lines = [line for line in capsys.readouterr().out.splitlines() if line]
+    assert len(lines) == 2
+    assert lines[0].startswith("[timing] frames 1-2: average ")
+    assert lines[0].endswith(" ms/frame")
+    assert lines[1].startswith("[timing] frames 3-3: average ")
+
+
+def test_benchmark_timing_validation_is_explicit():
+    prepared = _prepared()
+    with pytest.raises(ValueError, match="timing_enabled must be a bool"):
+        benchmark.run_benchmark(prepared, timing_enabled=1)
+    with pytest.raises(ValueError, match="positive integer"):
+        benchmark.run_benchmark(prepared, timing_report_every_n_frames=0)
 
 
 def test_method2_pipeline_matches_direct_solver_result():

@@ -3,6 +3,12 @@ import pytest
 
 from sew_mimic.common import ExactSewTarget, SolverStatus, gen3_end_effector_pose
 from sew_mimic.exact import NumericalExactSewOracle
+from sew_mimic.exact.acceptance import (
+    ORIENTATION_ACCEPTANCE_RAD,
+    POSITION_ACCEPTANCE_M,
+    SEW_ACCEPTANCE_RAD,
+)
+from sew_mimic.exact.numerical_oracle import NumericalOracleConfig
 from sew_mimic.exact.residuals import ExactSewResiduals
 from sew_mimic.kinematics import gen3_kinematics
 from sew_mimic.sew import (
@@ -41,6 +47,13 @@ def test_pose_and_exact_sew_recover_without_hidden_qtrue_seed(problem):
     assert exact.diagnostics.sew_error_rad < 1e-5
     assert exact.diagnostics.metadata["n_starts"] == len(oracle.deterministic_seeds)
     assert len(exact.diagnostics.metadata["runs"]) == len(oracle.deterministic_seeds)
+
+
+def test_oracle_defaults_share_method2_physical_acceptance_limits():
+    config = NumericalOracleConfig()
+    assert config.exact_position_m == POSITION_ACCEPTANCE_M
+    assert config.exact_orientation_rad == ORIENTATION_ACCEPTANCE_RAD
+    assert config.exact_sew_rad == SEW_ACCEPTANCE_RAD
 
 
 def test_repeat_is_deterministic_except_timing(problem):
@@ -91,7 +104,7 @@ def test_caller_local_seed_is_additive_and_near_limit_target_stays_bounded(probl
 def test_canonical_key_uses_physical_acceptance_thresholds(problem):
     oracle, _, _ = problem
     residual = ExactSewResiduals(
-        np.array([2e-6, 0, 0]),
+        np.array([2e-3, 0, 0]),
         np.zeros(3),
         0.0,
         np.zeros(3),

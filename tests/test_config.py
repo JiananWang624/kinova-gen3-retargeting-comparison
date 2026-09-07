@@ -26,6 +26,7 @@ def test_project_config_loads_from_the_single_root_yaml() -> None:
         "human_csv",
         "task_point",
         "stereo_sew",
+        "benchmark",
         "replay_csv",
         "synthetic_replay",
         "first_frame_validation",
@@ -34,6 +35,10 @@ def test_project_config_loads_from_the_single_root_yaml() -> None:
         "wrist_validation",
     }
     assert project_path(config["robot"]["model_path"]).is_file()
+    assert config["benchmark"]["timing"] == {
+        "enabled": True,
+        "report_every_n_frames": 10,
+    }
 
 
 def test_configured_coordinate_and_mounting_defaults_preserve_behavior() -> None:

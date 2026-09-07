@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import lru_cache
 import math
 import time
 from types import MappingProxyType
@@ -17,6 +18,11 @@ from ..geometry import rot, sp1, sp2, sp3
 from ..kinematics import Gen3Kinematics
 from ..sew import Gen3StereoSewGeometry, StereoSew
 from .residuals import robot_exact_sew_residuals
+from .acceptance import (
+    ORIENTATION_ACCEPTANCE_RAD,
+    POSITION_ACCEPTANCE_M,
+    SEW_ACCEPTANCE_RAD,
+)
 from .root_search import (
     EventAwareSearchConfig,
     RootSearchConfig,
@@ -33,9 +39,6 @@ Matrix = NDArray[np.float64]
 _ROTATION_TOL = 1e-10
 _SUBPROBLEM_VECTOR_RELATIVE_TOL = 1e-10
 _SP1_ALIGNMENT_RELATIVE_TOL = 1e-8
-_POSITION_ACCEPTANCE_M = 1e-6
-_ORIENTATION_ACCEPTANCE_RAD = 1e-6
-_SEW_ACCEPTANCE_RAD = 1e-5
 
 
 @dataclass(frozen=True)
@@ -224,18 +227,61 @@ def enumerate_exact_sew_candidates(
 
     started = time.perf_counter()
 
+    # These are target-specific invariants.  Event discovery evaluates the
+    # same wrist-circle angle many times, so keep both the invariant geometry
+    # and exact-float-keyed intermediate results local to this enumeration.
+    wrist = native.position - native.rotation_07 @ p[:, 7]
+    shoulder = p[:, 0]
+    p17 = wrist - shoulder
+    p17_length = float(np.linalg.norm(p17))
+    p3_length = float(np.linalg.norm(p[:, 3]))
+    p5_length = float(np.linalg.norm(p[:, 5]))
+    plane_normal = (
+        stereo.inverse(shoulder, wrist, native.psi).plane_normal
+        if p17_length > 1e-14
+        else None
+    )
+    # A bounded cache preserves exact floating-point inputs while preventing a
+    # pathological event tree from retaining one array per callback forever.
+    _CACHE_MAXSIZE = 4096
+
+    @lru_cache(maxsize=_CACHE_MAXSIZE)
+    def pwe_trace(angle: float) -> tuple[Vector, Vector]:
+        assert plane_normal is not None
+        pwe = rot(plane_normal, angle) @ (-p17 / p17_length) * p5_length
+        return p17, pwe
+
+    @lru_cache(maxsize=_CACHE_MAXSIZE)
+    def q1_geometry_trace(angle: float, branch: int) -> tuple[float, Matrix, Vector]:
+        trace_p17, pwe = pwe_trace(angle)
+        values = list(sp3(p[:, 1], trace_p17 + pwe, h[:, 0], p3_length).angles)
+        q1 = values[min(branch, len(values) - 1)]
+        r10 = rot(h[:, 0], -q1)
+        return q1, r10, r10 @ trace_p17 + r10 @ pwe - p[:, 1]
+
+    @lru_cache(maxsize=_CACHE_MAXSIZE)
+    def q23_pairs_trace(angle: float, branch: int) -> tuple[tuple[float, float], ...]:
+        _, _, vector23 = q1_geometry_trace(angle, branch)
+        return tuple(sp2(p[:, 3], vector23, h[:, 2], -h[:, 1]))
+
+    @lru_cache(maxsize=_CACHE_MAXSIZE)
+    def q45_trace(angle: float, branch_i: int, branch_j: int) -> tuple[tuple[float, float], ...]:
+        _, r10, _ = q1_geometry_trace(angle, branch_i)
+        pairs23 = q23_pairs_trace(angle, branch_i)
+        q3, q2 = pairs23[min(branch_j, len(pairs23) - 1)]
+        vector45 = (
+            rot(h[:, 2], -q3) @ rot(h[:, 1], -q2) @ (r10 @ p17 - p[:, 1])
+            - p[:, 3]
+        )
+        return tuple(sp2(p[:, 5], vector45, h[:, 4], -h[:, 3]))
+
     def partial(angle: float, *, record: bool = False) -> tuple[Vector, list[Vector | None]]:
         values = np.full(8, np.nan)
         parts: list[Vector | None] = [None] * 8
-        wrist = native.position - native.rotation_07 @ p[:, 7]
-        shoulder = p[:, 0]
-        p17 = wrist - shoulder
-        length = float(np.linalg.norm(p17))
-        if length <= 1e-14:
+        if p17_length <= 1e-14:
             return values, parts
-        normal = stereo.inverse(shoulder, wrist, native.psi).plane_normal
-        pwe = rot(normal, angle) @ (-p17 / length) * float(np.linalg.norm(p[:, 5]))
-        result = sp3(p[:, 1], p17 + pwe, h[:, 0], float(np.linalg.norm(p[:, 3])))
+        _, pwe = pwe_trace(angle)
+        result = sp3(p[:, 1], p17 + pwe, h[:, 0], p3_length)
         q1_branches = list(zip(result.angles, result.is_exact, result.residuals))
         for i, (q1, exact, residual) in enumerate(q1_branches[:2]):
             if not exact or not math.isfinite(residual):
@@ -292,64 +338,31 @@ def enumerate_exact_sew_candidates(
                     parts[slot] = np.array([q1, q2, q3, q4, q5])
         return values, parts
 
-    def trace_alignment(angle: float) -> Vector:
-        """Continuous LS trace only; never accepted without strict recomputation."""
-        wrist = native.position - native.rotation_07 @ p[:, 7]
-        p17 = wrist - p[:, 0]
-        length = float(np.linalg.norm(p17))
-        if length <= 1e-14:
-            return np.full(8, np.nan)
-        normal = stereo.inverse(p[:, 0], wrist, native.psi).plane_normal
-        pwe = rot(normal, angle) @ (-p17 / length) * float(np.linalg.norm(p[:, 5]))
-        q1_values = list(
-            sp3(
-                p[:, 1], p17 + pwe, h[:, 0], float(np.linalg.norm(p[:, 3]))
-            ).angles
+    def trace_alignment_slot(angle: float, slot: int) -> float:
+        """Evaluate one diagnostic continuation slot without materializing all eight."""
+        if p17_length <= 1e-14:
+            return math.nan
+        i, remainder = divmod(slot, 4)
+        j, k = divmod(remainder, 2)
+        try:
+            _, r10, _ = q1_geometry_trace(angle, i)
+            pairs23 = q23_pairs_trace(angle, i)
+            q3, q2 = pairs23[min(j, len(pairs23) - 1)]
+            pairs45 = q45_trace(angle, i, j)
+        except (IndexError, ValueError):
+            return math.nan
+        q5, q4 = pairs45[min(k, len(pairs45) - 1)]
+        r05 = (
+            r10.T
+            @ rot(h[:, 1], q2)
+            @ rot(h[:, 2], q3)
+            @ rot(h[:, 3], q4)
+            @ rot(h[:, 4], q5)
         )
-        if not q1_values:
-            return np.full(8, np.nan)
-        # Coalesced/LS representatives are duplicated only in this diagnostic
-        # continuation so both child margins remain traceable. ``partial``
-        # never duplicates them, and only ``partial`` can create candidates.
-        while len(q1_values) < 2:
-            q1_values.append(q1_values[-1])
-        output = np.full(8, np.nan)
-        slot = 0
-        for q1 in q1_values[:2]:
-            r10 = rot(h[:, 0], -q1)
-            vector23 = r10 @ p17 + r10 @ pwe - p[:, 1]
-            try:
-                pairs23 = list(sp2(p[:, 3], vector23, h[:, 2], -h[:, 1]))
-            except ValueError:
-                slot += 4
-                continue
-            while len(pairs23) < 2:
-                pairs23.append(pairs23[-1])
-            for q3, q2 in pairs23[:2]:
-                r21 = rot(h[:, 1], -q2)
-                r32 = rot(h[:, 2], -q3)
-                vector45 = r32 @ r21 @ (r10 @ p17 - p[:, 1]) - p[:, 3]
-                try:
-                    pairs45 = list(sp2(p[:, 5], vector45, h[:, 4], -h[:, 3]))
-                except ValueError:
-                    slot += 2
-                    continue
-                while len(pairs45) < 2:
-                    pairs45.append(pairs45[-1])
-                for q5, q4 in pairs45[:2]:
-                    r05 = (
-                        r10.T
-                        @ r21.T
-                        @ r32.T
-                        @ rot(h[:, 3], q4)
-                        @ rot(h[:, 4], q5)
-                    )
-                    output[slot] = (
-                        h[:, 5] @ r05.T @ native.rotation_07 @ h[:, 6]
-                        - h[:, 5] @ h[:, 6]
-                    )
-                    slot += 1
-        return output
+        return float(
+            h[:, 5] @ r05.T @ native.rotation_07 @ h[:, 6]
+            - h[:, 5] @ h[:, 6]
+        )
 
     if search_config.mode == "reference_fixed_grid":
         roots = search_fixed_slot_roots(
@@ -360,28 +373,6 @@ def enumerate_exact_sew_candidates(
         event_roots = []
         base_event = search_config.event_aware
 
-        def q1_trace(angle: float, branch: int) -> float:
-            p17, pwe = pwe_trace(angle)
-            values = list(
-                sp3(
-                    p[:, 1],
-                    p17 + pwe,
-                    h[:, 0],
-                    float(np.linalg.norm(p[:, 3])),
-                ).angles
-            )
-            return values[min(branch, len(values) - 1)]
-
-        def pwe_trace(angle: float) -> tuple[Vector, Vector]:
-            wrist = native.position - native.rotation_07 @ p[:, 7]
-            p17 = wrist - p[:, 0]
-            normal = stereo.inverse(p[:, 0], wrist, native.psi).plane_normal
-            pwe = (
-                rot(normal, angle)
-                @ (-p17 / np.linalg.norm(p17))
-                * np.linalg.norm(p[:, 5])
-            )
-            return p17, pwe
         # Lexical event tree: each child only searches an already certified
         # parent interval, so narrow downstream discriminants are never hidden
         # behind a broad SP3-only coarse grid.
@@ -392,7 +383,7 @@ def enumerate_exact_sew_candidates(
                         p[:, 1],
                         sum(pwe_trace(angle)),
                         h[:, 0],
-                        float(np.linalg.norm(p[:, 3])),
+                        p3_length,
                     )
                 ]
             ),
@@ -408,10 +399,7 @@ def enumerate_exact_sew_candidates(
                 )
 
                 def q23_margin(angle: float, branch=i) -> Vector:
-                    p17, pwe = pwe_trace(angle)
-                    q1 = q1_trace(angle, branch)
-                    r10 = rot(h[:, 0], -q1)
-                    vector = r10 @ p17 + r10 @ pwe - p[:, 1]
+                    _, _, vector = q1_geometry_trace(angle, branch)
                     value = sp2_feasibility_margin(
                         p[:, 3], vector, h[:, 2], -h[:, 1]
                     )
@@ -428,13 +416,8 @@ def enumerate_exact_sew_candidates(
                         )
 
                         def q45_margin(angle: float, branch_i=i, branch_j=j) -> Vector:
-                            p17, pwe = pwe_trace(angle)
-                            q1 = q1_trace(angle, branch_i)
-                            r10 = rot(h[:, 0], -q1)
-                            vector23 = r10 @ p17 + r10 @ pwe - p[:, 1]
-                            pairs = list(
-                                sp2(p[:, 3], vector23, h[:, 2], -h[:, 1])
-                            )
+                            _, r10, _ = q1_geometry_trace(angle, branch_i)
+                            pairs = q23_pairs_trace(angle, branch_i)
                             q3, q2 = pairs[min(branch_j, len(pairs) - 1)]
                             vector45 = (
                                 rot(h[:, 2], -q3)
@@ -460,7 +443,7 @@ def enumerate_exact_sew_candidates(
                                 def align(
                                     angle: float, slot=4 * i + 2 * j + k
                                 ) -> Vector:
-                                    return np.array([trace_alignment(angle)[slot]])
+                                    return np.array([trace_alignment_slot(angle, slot)])
 
                                 leaf = solve_alignment_roots((interval45,), align, leaf_config)
                                 record_event(leaf)
@@ -516,10 +499,10 @@ def enumerate_exact_sew_candidates(
             counts["rejected_final"] += 1
             continue
         exact = (
-            residual.position_error_m < _POSITION_ACCEPTANCE_M
-            and residual.orientation_error_rad < _ORIENTATION_ACCEPTANCE_RAD
+            residual.position_error_m < POSITION_ACCEPTANCE_M
+            and residual.orientation_error_rad < ORIENTATION_ACCEPTANCE_RAD
             and residual.sew_error_rad is not None
-            and residual.sew_error_rad < _SEW_ACCEPTANCE_RAD
+            and residual.sew_error_rad < SEW_ACCEPTANCE_RAD
         )
         if not exact:
             counts["rejected_final"] += 1

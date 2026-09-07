@@ -11,9 +11,10 @@ limit midpoint when distinct, and six fixed-seed samples), with separate
 pose-only and pose-plus-SEW APIs. The fixed starts are target-independent;
 an optional caller seed is additive and is labelled in candidate diagnostics.
 Residuals are scaled by 0.1 m, 0.2 rad, and 0.2 rad for optimization only.
-Physical post-validation requires position < 1e-6 m, orientation < 1e-6 rad,
-and SEW < 1e-5 rad. A finite nonexact candidate is `SUCCESS_APPROX`, never
-exact. Numerical failure is not a reachability proof, so the oracle does not
+Physical post-validation defaults to the shared Method 2/3 limits: position
+< 1e-3 m, orientation < 1 degree, and SEW < 1 degree. Callers may override the
+oracle configuration explicitly. A finite nonexact candidate is
+`SUCCESS_APPROX`, never exact. Numerical failure is not a reachability proof, so the oracle does not
 infer `UNREACHABLE` from optimizer failure.
 
 Candidates retain seed ID, optimizer termination/status/message/nfev/cost,

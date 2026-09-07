@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
 from typing import Literal
 
 import numpy as np
@@ -12,12 +11,14 @@ from numpy.typing import ArrayLike
 from ..angles import angular_difference
 from ..common import SolverStatus
 from .stereo_backend import ExactSewCandidate, ExactSewCandidateSet
+from .acceptance import (
+    ORIENTATION_ACCEPTANCE_RAD,
+    POSITION_ACCEPTANCE_M,
+    SEW_ACCEPTANCE_RAD,
+)
 
 
 BranchPolicy = Literal["canonical", "continuous"]
-_POSITION_ACCEPTANCE_M = 1e-6
-_ORIENTATION_ACCEPTANCE_RAD = 1e-6
-_SEW_ACCEPTANCE_RAD = 1e-5
 
 
 @dataclass(frozen=True)
@@ -48,17 +49,17 @@ def _previous_configuration(value: ArrayLike | None) -> np.ndarray | None:
 def normalized_authoritative_residual(candidate: ExactSewCandidate) -> float:
     """Squared residual normalized by the Method-2 acceptance thresholds."""
     return float(
-        (candidate.position_error_m / _POSITION_ACCEPTANCE_M) ** 2
-        + (candidate.orientation_error_rad / _ORIENTATION_ACCEPTANCE_RAD) ** 2
-        + (candidate.sew_error_rad / _SEW_ACCEPTANCE_RAD) ** 2
+        (candidate.position_error_m / POSITION_ACCEPTANCE_M) ** 2
+        + (candidate.orientation_error_rad / ORIENTATION_ACCEPTANCE_RAD) ** 2
+        + (candidate.sew_error_rad / SEW_ACCEPTANCE_RAD) ** 2
     )
 
 
 def candidate_passes_authoritative_thresholds(candidate: ExactSewCandidate) -> bool:
     return bool(
-        candidate.position_error_m < _POSITION_ACCEPTANCE_M
-        and candidate.orientation_error_rad < _ORIENTATION_ACCEPTANCE_RAD
-        and candidate.sew_error_rad < _SEW_ACCEPTANCE_RAD
+        candidate.position_error_m < POSITION_ACCEPTANCE_M
+        and candidate.orientation_error_rad < ORIENTATION_ACCEPTANCE_RAD
+        and candidate.sew_error_rad < SEW_ACCEPTANCE_RAD
     )
 
 
