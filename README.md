@@ -30,15 +30,14 @@ solver.
 src/sew_mimic/
   common/         shared targets, statuses, task point, and FK evaluation
   sew/            legacy Method 0 adapter and Stereo-SEW representation
-  exact/          Method 2 candidates/selection and lazy Method 3 oracle
+  exact/          compiled Method 2 solver and lazy Method 3 oracle
   warp/           generic WARP core and Gen3 compatibility gate
   pipeline/       mounted trajectory preparation, dispatch, and benchmark
   visualization/  precomputed replay and display-only overlays
 ```
 
-Candidate generation and trajectory branch selection are separate. Method 2
-uses deterministic event-aware candidate discovery and supports canonical or
-nearest-previous-configuration selection. It never falls back to Method 3.
+Method 2 uses one stateful compiled event solver per trajectory. It applies
+strict MuJoCo-derived pinch-site acceptance and never falls back to Method 3.
 
 ## Installation on Windows
 
@@ -46,7 +45,7 @@ The validated environment is Python 3.11 with MuJoCo 3.1.6.
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -e .[test]
 ```
 
 Run commands from the repository root. The scripts add `src/` to their import
@@ -72,15 +71,75 @@ Compare Method 0, recommended Method 2, and the bounded Method 3 oracle:
 .venv\Scripts\python.exe scripts\compare_retargeters.py `
   --input data\test.csv `
   --methods sew_mimic exact_sew numerical_oracle `
-  --exact-branch-policy continuous `
   --max-frames 100 `
   --oracle-max-frames 10
 ```
 
 This writes regenerable `output/comparison_frames.csv` and
-`output/comparison_summary.json`. The optimized Method 2 backend averaged about
-2.4 seconds per frame in the latest ten-frame Windows validation, so bounded
-validation remains the normal workflow.
+`output/comparison_summary.json`. The Phase 3 stateful C++ path recorded about
+8.48 ms per frame on the 100-frame benchmark; rerun the benchmark on the target
+machine before treating timing as a release measurement.
+
+Exact-SEW continuation and bounded global recovery are always enabled for a
+trajectory. Its sole runtime controls are the `exact_sew` mapping in
+`config.yaml`.
+
+### 选择方法和帧范围
+
+`--methods` 可以指定一个或多个方法；`--start-frame` 从 0 开始计数，
+`--max-frames` 指定最多处理多少帧，`--stride` 指定帧间隔。
+
+只运行方法 2 的第 100 帧：
+
+```powershell
+.venv\Scripts\python.exe scripts\compare_retargeters.py `
+  --input data\test.csv `
+  --methods exact_sew `
+  --start-frame 100 `
+  --max-frames 1
+```
+
+运行方法 0 的第 100–199 帧（包含两端）：
+
+```powershell
+.venv\Scripts\python.exe scripts\compare_retargeters.py `
+  --input data\test.csv `
+  --methods sew_mimic `
+  --start-frame 100 `
+  --max-frames 100
+```
+
+运行方法 2 的全部 CSV 帧：
+
+```powershell
+.venv\Scripts\python.exe scripts\compare_retargeters.py `
+  --input data\test.csv `
+  --methods exact_sew `
+  --all
+```
+
+同时运行方法 0 和方法 2 的全部 CSV 帧：
+
+```powershell
+.venv\Scripts\python.exe scripts\compare_retargeters.py `
+  --input data\test.csv `
+  --methods sew_mimic exact_sew `
+  --all
+```
+
+方法 3 是验证用数值 oracle，默认只运行前 10 帧。若确实需要让它覆盖
+全部 CSV 帧，必须把 `--oracle-max-frames` 设置为数据帧数；这通常会非常慢：
+
+```powershell
+.venv\Scripts\python.exe scripts\compare_retargeters.py `
+  --input data\test.csv `
+  --methods numerical_oracle `
+  --all `
+  --oracle-max-frames 4344
+```
+
+上面的 `4344` 需要替换成实际 CSV 的总帧数。比较结果统一写入
+`output/comparison_frames.csv` 和 `output/comparison_summary.json`。
 
 Replay precomputed Method 2 results interactively:
 
@@ -96,6 +155,20 @@ Add `--no-viewer` for headless replay-file and evaluator consistency checks.
 Use `--method sew_mimic` to inspect the baseline. Replay never runs Method 2
 IK; it uses precomputed configurations and independently verifies their stored
 metrics.
+
+Replay 已经计算完成的全部帧：
+
+```powershell
+.venv\Scripts\python.exe scripts\replay_compare.py `
+  --input data\test.csv `
+  --results output\comparison_frames.csv `
+  --method exact_sew `
+  --all
+```
+
+如果只想无窗口验证全部结果，在命令末尾加 `--no-viewer`。回放方法 0 时将
+`--method exact_sew` 改为 `--method sew_mimic`；回放方法 3 时改为
+`--method numerical_oracle`。
 
 ## Validated findings
 
@@ -119,7 +192,6 @@ Visualization offsets never affect targets, solver inputs, or metrics.
 - [Retargeting architecture](docs/RETARGETING_ARCHITECTURE.md)
 - [Stereo-SEW convention](docs/STEREO_SEW.md)
 - [Validated Gen3 geometry](docs/GEN3_STEREO_SEW_GEOMETRY.md)
-- [Exact-SEW backend](docs/GEN3_EXACT_SEW_BACKEND.md)
 - [Exact-SEW solver and branch policies](docs/GEN3_EXACT_SEW_SOLVER.md)
 - [Numerical oracle](docs/NUMERICAL_EXACT_SEW_ORACLE.md)
 - [Generic WARP core and compatibility](docs/WARP_CSEW_CORE.md)

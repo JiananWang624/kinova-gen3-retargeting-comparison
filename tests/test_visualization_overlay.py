@@ -173,3 +173,5 @@ def test_base_to_world_transform_and_headless_scene_rendering():
     scene = mujoco.MjvScene(robot.model, maxgeom=200)
     render_overlay_into_scene(scene, world)
     assert scene.ngeom == len(world.spheres) + len(world.lines) + 3 * len(world.axes)
+    render_overlay_into_scene(scene, world, show_world_frame=True)
+    assert scene.ngeom == len(world.spheres) + len(world.lines) + 3 * (len(world.axes) + 1)

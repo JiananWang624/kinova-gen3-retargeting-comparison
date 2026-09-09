@@ -1,7 +1,0 @@
-numpy
-scipy
-pandas
-matplotlib
-pytest
-mujoco==3.1.6
-PyYAML

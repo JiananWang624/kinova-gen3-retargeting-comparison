@@ -18,8 +18,8 @@ def test_documented_public_apis_import() -> None:
         SolverStatus,
     )
     from sew_mimic.exact import (  # noqa: F401
-        NumericalExactSewOracle,
-        enumerate_exact_sew_candidates,
+            NumericalExactSewOracle,
+            ExactSewSolver,
         retarget_exact_sew,
         solve_exact_sew,
     )
@@ -51,7 +51,7 @@ def test_method2_import_does_not_load_numerical_oracle() -> None:
     code = """
 import sys
 sys.path.insert(0, 'src')
-from sew_mimic.exact import enumerate_exact_sew_candidates, solve_exact_sew
+from sew_mimic.exact import ExactSewSolver, solve_exact_sew
 from sew_mimic.kinematics import gen3_kinematics
 from sew_mimic.pipeline import PreparedTrajectory, run_benchmark
 from sew_mimic.sew import Gen3StereoSewGeometry, StereoSew, project_stereo_sew_reference

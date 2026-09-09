@@ -14,7 +14,7 @@ robot:
   # Gen3 h5 原生轴到下臂指向 proxy 的符号；已由随机几何验证确定。
   lower_arm_proxy_sign: -1.0
   # 整个 Gen3 root 在 MuJoCo world 中的额外 XYZ 平移，单位 m；默认不偏移。
-  world_offset_m: [0.0, 0.0, 0.2]
+  world_offset_m: [0.0, 0.15, 0.2]
 
 human_csv:
   # 默认 human trajectory CSV，相对于项目根目录。
@@ -58,6 +58,13 @@ benchmark:
   timing:
     enabled: true
     report_every_n_frames: 10
+
+exact_sew:
+  radii_rad: [0.002, 0.004, 0.01, 0.04]
+  local_partitions_min: 8
+  global_partitions: 64
+  maximum_event_evaluations: 50000
+  maximum_wrapped_joint_step_rad: 0.5
 
 replay_csv:
   # 完整 CSV retarget 后关节角和误差的默认输出文件。

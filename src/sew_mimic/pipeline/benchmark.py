@@ -11,13 +11,7 @@ from typing import Any, Iterable, Literal
 import numpy as np
 
 from ..common import SolverDiagnostics, SolverResult, SolverStatus
-from ..exact import (
-    R2R2R2RSearchConfig,
-    enumerate_exact_sew_candidates,
-    human_arm_to_exact_sew_target,
-    select_exact_sew_branch,
-    solve_exact_sew,
-)
+from ..exact import ExactSewConfig, ExactSewSolver, human_arm_to_exact_sew_target
 from ..sew import StereoSewSingularityError, solve_legacy_sew_mimic
 from ..warp import check_warp_fixed_geometry_compatibility
 from .evaluator import EvaluationRow, evaluate_result
@@ -25,7 +19,6 @@ from .trajectory import PreparedTrajectory
 
 
 MethodName = Literal["sew_mimic", "exact_sew", "numerical_oracle"]
-BranchPolicy = Literal["canonical", "continuous"]
 _SUCCESS = {SolverStatus.SUCCESS_EXACT, SolverStatus.SUCCESS_APPROX}
 
 
@@ -124,101 +117,24 @@ def _with_elapsed_if_missing(
     )
 
 
-def _result_from_cached_selection(
-    candidate_set: Any,
-    *,
-    branch_policy: BranchPolicy,
-    q_previous: np.ndarray | None,
-    search_config: R2R2R2RSearchConfig,
-    started: float,
-) -> SolverResult:
-    """Apply the public Phase-5B selector without regenerating candidates."""
-    metadata: dict[str, Any] = {
-        "constraint_set": "pinch_pose_plus_stereo_sew",
-        "branch_policy": branch_policy,
-        "candidate_count": len(candidate_set.candidates),
-        "joint_limit_valid_candidate_count": sum(
-            candidate.joint_limit_valid for candidate in candidate_set.candidates
-        ),
-        "search_mode": search_config.mode,
-        "backend_elapsed_ms": candidate_set.elapsed_ms,
-    }
-    try:
-        outcome = select_exact_sew_branch(
-            candidate_set,
-            branch_policy=branch_policy,
-            q_previous=q_previous,
-        )
-    except (TypeError, ValueError) as error:
-        return _failure_result(
-            "exact_sew", SolverStatus.INVALID_INPUT, started, str(error), metadata
-        )
-    except Exception as error:
-        metadata["exception_type"] = type(error).__name__
-        return _failure_result(
-            "exact_sew", SolverStatus.NUMERICAL_FAILURE, started, str(error), metadata
-        )
-
-    if outcome.status is not SolverStatus.SUCCESS_EXACT:
-        return _failure_result(
-            "exact_sew",
-            outcome.status,
-            started,
-            "no selectable exact branch",
-            metadata,
-        )
-
-    candidate = outcome.candidate
-    assert candidate is not None and outcome.branch_id is not None
-    metadata.update(
-        backend_branch_identity=outcome.branch_id,
-        wrist_search_angle=candidate.wrist_search_angle,
-        search_branch=candidate.search_branch,
-        backend_metadata=dict(candidate.metadata),
-    )
-    return SolverResult(
-        "exact_sew",
-        SolverStatus.SUCCESS_EXACT,
-        candidate.q,
-        SolverDiagnostics(
-            position_error_m=candidate.position_error_m,
-            orientation_error_rad=candidate.orientation_error_rad,
-            sew_error_rad=candidate.sew_error_rad,
-            joint_limit_margin_rad=candidate.joint_limit_margin_rad,
-            solve_time_ms=1000.0 * (time.perf_counter() - started),
-            branch_id=outcome.branch_id,
-            metadata=metadata,
-        ),
-    )
-
-
 def run_benchmark(
     trajectory: PreparedTrajectory,
     *,
     methods: Iterable[MethodName] = ("sew_mimic", "exact_sew"),
-    exact_branch_policy: BranchPolicy = "continuous",
-    compare_exact_policies: bool = False,
     oracle_max_frames: int = 10,
-    search_config: R2R2R2RSearchConfig = R2R2R2RSearchConfig(),
+    exact_config: ExactSewConfig = ExactSewConfig(),
     timing_enabled: bool = False,
     timing_report_every_n_frames: int = 10,
 ) -> BenchmarkResult:
-    """Run executable methods, with Method 3 limited to a leading subset.
-
-    Continuous Method 2 history is updated only by successful selected
-    configurations. A failed frame leaves the most recent valid configuration
-    in place for the next frame.
-    """
+    """Run executable methods, reusing one stateful Method-2 solver per run."""
     selected = tuple(methods)
     supported = {"sew_mimic", "exact_sew", "numerical_oracle"}
     if not selected or not set(selected) <= supported:
         raise ValueError("methods must contain at least one supported method")
-    if exact_branch_policy not in ("canonical", "continuous"):
-        raise ValueError("invalid exact branch policy")
     if oracle_max_frames < 1:
         raise ValueError("oracle_max_frames must be at least 1")
-    if not isinstance(search_config, R2R2R2RSearchConfig):
-        raise ValueError("search_config must be R2R2R2RSearchConfig")
+    if not isinstance(exact_config, ExactSewConfig):
+        raise ValueError("exact_config must be ExactSewConfig")
     if not isinstance(timing_enabled, bool):
         raise ValueError("timing_enabled must be a bool")
     if (
@@ -230,7 +146,8 @@ def run_benchmark(
 
     rows: list[EvaluationRow] = []
     q_legacy = np.zeros(7)
-    q_continuous: np.ndarray | None = None
+    exact_solver = (ExactSewSolver(trajectory.robot, trajectory.geometry, trajectory.stereo,
+                                   config=exact_config) if "exact_sew" in selected else None)
     oracle = None
     if "numerical_oracle" in selected:
         from ..exact.numerical_oracle import NumericalExactSewOracle
@@ -293,82 +210,9 @@ def run_benchmark(
                 )
 
         if "exact_sew" in selected:
-            policies: tuple[BranchPolicy, ...] = (
-                ("canonical", "continuous")
-                if compare_exact_policies
-                else (exact_branch_policy,)
-            )
-            cached_candidates = None
-            enumeration_failure: SolverResult | None = None
-            enumeration_started = time.perf_counter()
-            if exact_target is not None and compare_exact_policies:
-                try:
-                    cached_candidates = enumerate_exact_sew_candidates(
-                        exact_target,
-                        trajectory.robot,
-                        trajectory.geometry,
-                        trajectory.stereo,
-                        search_config=search_config,
-                    )
-                except StereoSewSingularityError as error:
-                    enumeration_failure = _failure_result(
-                        "exact_sew",
-                        SolverStatus.SEW_SINGULAR,
-                        enumeration_started,
-                        str(error),
-                    )
-                except Exception as error:
-                    enumeration_failure = _failure_result(
-                        "exact_sew",
-                        SolverStatus.NUMERICAL_FAILURE,
-                        enumeration_started,
-                        str(error),
-                        {"exception_type": type(error).__name__},
-                    )
-
-            for policy in policies:
-                if target_failure is not None:
-                    result = target_failure
-                elif enumeration_failure is not None:
-                    result = enumeration_failure
-                elif cached_candidates is not None:
-                    result = _result_from_cached_selection(
-                        cached_candidates,
-                        branch_policy=policy,
-                        q_previous=q_continuous if policy == "continuous" else None,
-                        search_config=search_config,
-                        started=enumeration_started,
-                    )
-                else:
-                    assert exact_target is not None
-                    result = solve_exact_sew(
-                        exact_target,
-                        trajectory.robot,
-                        trajectory.geometry,
-                        trajectory.stereo,
-                        branch_policy=policy,
-                        q_previous=(
-                            q_continuous if policy == "continuous" else None
-                        ),
-                        search_config=search_config,
-                    )
-                label = (
-                    f"exact_sew_{policy}" if compare_exact_policies else "exact_sew"
-                )
-                rows.append(
-                    evaluate_result(
-                        item.frame,
-                        label,
-                        result,
-                        target,
-                        trajectory.robot,
-                        trajectory.geometry,
-                        trajectory.stereo,
-                    )
-                )
-                if policy == "continuous" and result.status in _SUCCESS:
-                    assert result.q is not None
-                    q_continuous = result.q
+            result = target_failure if target_failure is not None else exact_solver.solve(exact_target)
+            rows.append(evaluate_result(item.frame, "exact_sew", result, target,
+                                        trajectory.robot, trajectory.geometry, trajectory.stereo))
 
         if oracle is not None and item.frame in oracle_frames:
             if target_failure is not None:

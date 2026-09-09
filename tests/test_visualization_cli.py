@@ -39,7 +39,7 @@ def test_cli_headless_smoke_uses_precomputed_results_and_never_calls_ik(
     def forbidden(*args, **kwargs):
         raise AssertionError("replay must not invoke Method-2 IK")
 
-    monkeypatch.setattr(benchmark, "solve_exact_sew", forbidden)
+    monkeypatch.setattr(benchmark, "ExactSewSolver", forbidden)
     monkeypatch.setattr(replay_compare, "replay_in_mujoco", forbidden)
     assert replay_compare.main(
         [

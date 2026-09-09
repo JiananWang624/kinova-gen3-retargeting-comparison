@@ -19,7 +19,6 @@ Run the bounded validation comparison from the repository root:
 .venv\Scripts\python.exe scripts\compare_retargeters.py `
   --input data\test.csv `
   --methods sew_mimic exact_sew `
-  --exact-branch-policy continuous `
   --max-frames 100
 ```
 
@@ -27,14 +26,11 @@ Add `numerical_oracle --oracle-max-frames 10` to the method list to validate a
 deterministic leading subset of the same selected frames. Method 3 does not run
 on every frame unless the requested subset covers every selected frame.
 
-Use `--all` intentionally for a complete trajectory. The optimized event-aware
-Method 2 solver averaged about 2.4 seconds per frame in the latest ten-frame
-Windows validation, so a full 4,344-frame run is not part of normal validation.
-`--exact-branch-policy` chooses canonical or
-continuous selection; `--compare-exact-policies` emits both labels while
-sharing candidate enumeration. Continuous is recommended for trajectories. It
-keeps the most recently successful joint configuration across failures; a
-failed result never replaces branch-selection history.
+Use `--all` intentionally for a complete trajectory. Method 2 creates one
+stateful compiled solver for the selected frames. Local continuation preserves
+the last successful state; uncertainty uses deterministic global recovery and
+a failed result never replaces that state. Its controls are the single
+`exact_sew` mapping in `config.yaml`.
 
 Output is `output/comparison_frames.csv` and
 `output/comparison_summary.json` unless `--output-dir` is supplied. Failed

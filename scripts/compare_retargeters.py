@@ -15,7 +15,7 @@ from sew_mimic.common.task_point import (  # noqa: E402
     DEFAULT_TASK_POINT_MODE,
 )
 from sew_mimic.config import load_config  # noqa: E402
-from sew_mimic.exact import R2R2R2RSearchConfig  # noqa: E402
+from sew_mimic.exact import ExactSewConfig  # noqa: E402
 from sew_mimic.pipeline import (  # noqa: E402
     capability_metadata,
     prepare_trajectory,
@@ -46,6 +46,17 @@ def _timing_settings() -> tuple[bool, int]:
     return enabled, every
 
 
+def _exact_config() -> ExactSewConfig:
+    value = load_config().get("exact_sew")
+    if not isinstance(value, dict):
+        raise ValueError("config.yaml exact_sew must be a mapping")
+    fields = ("radii_rad", "local_partitions_min", "global_partitions",
+              "maximum_event_evaluations", "maximum_wrapped_joint_step_rad")
+    if set(value) != set(fields):
+        raise ValueError("config.yaml exact_sew must contain exactly the supported controls")
+    return ExactSewConfig(**value)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compare executable fixed-base Gen3 retargeters."
@@ -67,19 +78,13 @@ def main(argv: list[str] | None = None) -> int:
         choices=("sew_mimic", "exact_sew", "numerical_oracle"),
         default=("sew_mimic", "exact_sew"),
     )
-    parser.add_argument(
-        "--exact-branch-policy",
-        choices=("canonical", "continuous"),
-        default="continuous",
-    )
-    parser.add_argument("--compare-exact-policies", action="store_true")
     parser.add_argument("--oracle-max-frames", type=int, default=10)
     args = parser.parse_args(argv)
     input_path = args.input or args.input_positional
     if input_path is None:
         parser.error("--input is required")
     timing_enabled, timing_report_every_n_frames = _timing_settings()
-    search_config = R2R2R2RSearchConfig()
+    exact_config = _exact_config()
     prepared = prepare_trajectory(
         input_path,
         start_frame=args.start_frame,
@@ -89,10 +94,8 @@ def main(argv: list[str] | None = None) -> int:
     result = run_benchmark(
         prepared,
         methods=args.methods,
-        exact_branch_policy=args.exact_branch_policy,
-        compare_exact_policies=args.compare_exact_policies,
+        exact_config=exact_config,
         oracle_max_frames=args.oracle_max_frames,
-        search_config=search_config,
         timing_enabled=timing_enabled,
         timing_report_every_n_frames=timing_report_every_n_frames,
     )
@@ -112,8 +115,6 @@ def main(argv: list[str] | None = None) -> int:
             "selected_frame_indices": [frame.frame for frame in prepared.frames],
         },
         "methods_requested": list(args.methods),
-        "exact_branch_policy": args.exact_branch_policy,
-        "compare_exact_policies": args.compare_exact_policies,
         "oracle_max_frames": args.oracle_max_frames,
         "task_point": {
             "mode": DEFAULT_TASK_POINT_MODE,
@@ -125,7 +126,13 @@ def main(argv: list[str] | None = None) -> int:
             "e_t": prepared.stereo.reference.e_t.tolist(),
             "e_r": prepared.stereo.reference.e_r.tolist(),
         },
-        "search_mode": search_config.mode,
+        "exact_sew_config": {
+            "radii_rad": list(exact_config.radii_rad),
+            "local_partitions_min": exact_config.local_partitions_min,
+            "global_partitions": exact_config.global_partitions,
+            "maximum_event_evaluations": exact_config.maximum_event_evaluations,
+            "maximum_wrapped_joint_step_rad": exact_config.maximum_wrapped_joint_step_rad,
+        },
         "summary": result.summary,
         "capabilities": capability_metadata(prepared),
     }

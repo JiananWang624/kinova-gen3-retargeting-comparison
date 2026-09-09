@@ -41,6 +41,7 @@ _AXIS_COLORS = (
     (0.1, 0.35, 1.0, 1.0),
 )
 _AXIS_WIDTH_M = 0.003
+_WORLD_FRAME_LENGTH_M = 0.20
 _STORED_METRIC_ABSOLUTE_TOLERANCE = 1e-8
 _STORED_METRIC_RELATIVE_TOLERANCE = 1e-10
 
@@ -476,9 +477,19 @@ def format_frame_diagnostics(frame: ReplayDisplayFrame) -> str:
     return " ".join(parts)
 
 
-def render_overlay_into_scene(scene: Any, overlay: OverlayFrame) -> None:
+def render_overlay_into_scene(
+    scene: Any,
+    overlay: OverlayFrame,
+    *,
+    show_world_frame: bool = False,
+) -> None:
     """Replace a MuJoCo user scene with one finite set of overlay primitives."""
-    required = len(overlay.spheres) + len(overlay.lines) + 3 * len(overlay.axes)
+    required = (
+        len(overlay.spheres)
+        + len(overlay.lines)
+        + 3 * len(overlay.axes)
+        + (3 if show_world_frame else 0)
+    )
     if required > len(scene.geoms):
         raise ValueError(
             f"overlay needs {required} user geoms but scene capacity is {len(scene.geoms)}"
@@ -524,6 +535,21 @@ def render_overlay_into_scene(scene: Any, overlay: OverlayFrame) -> None:
                 _AXIS_WIDTH_M,
                 primitive.origin,
                 primitive.origin + primitive.length_m * primitive.rotation[:, axis],
+            )
+            geom.rgba[:] = color
+            geom.emission = 1.0
+    if show_world_frame:
+        origin = np.zeros(3)
+        for axis, color in enumerate(_AXIS_COLORS):
+            geom = next_geom()
+            endpoint = origin.copy()
+            endpoint[axis] = _WORLD_FRAME_LENGTH_M
+            mujoco.mjv_connector(
+                geom,
+                mujoco.mjtGeom.mjGEOM_ARROW,
+                _AXIS_WIDTH_M,
+                origin,
+                endpoint,
             )
             geom.rgba[:] = color
             geom.emission = 1.0
@@ -591,7 +617,11 @@ def replay_in_mujoco(
                         data.xmat[base_id].reshape(3, 3),
                         data.xpos[base_id],
                     )
-                    render_overlay_into_scene(viewer.user_scn, world_overlay)
+                    render_overlay_into_scene(
+                        viewer.user_scn,
+                        world_overlay,
+                        show_world_frame=True,
+                    )
                     print(format_frame_diagnostics(display))
                     viewer.sync()
                     deadline = cycle_started + (index + 1) / options.fps

@@ -3,9 +3,8 @@
 `scripts/replay_compare.py` replays stored Phase 7 configurations. It reads the
 original human CSV through `prepare_trajectory()` and requires a matching
 method/frame row in `comparison_frames.csv`; it never runs IK during normal
-playback. This is important for Method 2 because optimized event-aware
-Exact-SEW solving still took about 2.4 seconds per frame in the latest ten-frame
-Windows validation.
+playback. The Phase 3 stateful C++ Exact-SEW path recorded about 8.48 ms per
+frame on its 100-frame benchmark; replay still consumes stored configurations.
 
 Before opening the viewer, replay runs the Phase 7 authoritative evaluator on
 each stored successful q and rejects stale results whose position,
@@ -30,6 +29,8 @@ frame. The overlays show:
 - optionally, validated human and robot S/E/W triangles and oriented SEW-plane
   normals;
 - optional finite human-task and robot-pinch trails.
+- a fixed world-frame XYZ triad at world origin `[0, 0, 0]` (red X, green Y,
+  blue Z) in the interactive MuJoCo viewer.
 
 Axes use red X, green Y, and blue Z. The position-error segment endpoints are
 the same points used by the Phase 7 authoritative evaluator.

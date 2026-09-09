@@ -2,10 +2,9 @@
 
 ## Repository state
 
-Phase 9 was validated from commit
-`63d7172cde67044abe6236e69c125014b924d807` on Windows with Python 3.11.15 and
-MuJoCo 3.1.6. The working tree already contained the completed Phase 5-8 files;
-Phase 9 did not commit, push, merge, or tag them.
+The Phase 3 production cutover was validated on Windows with Python 3.11 and
+MuJoCo 3.1.6. The working tree contains the single stateful C++ Exact-SEW
+production path.
 
 Important module tree:
 
@@ -13,8 +12,7 @@ Important module tree:
 src/sew_mimic/
   common/         evaluation.py, status.py, task_point.py, types.py
   sew/            gen3_geometry.py, legacy_adapter.py, stereo.py
-  exact/          stereo_backend.py, root_search.py, branch_selection.py,
-                  solver.py, numerical_oracle.py
+  exact/          cpp_solver.py, solver.py, numerical_oracle.py
   warp/           geometry.py, skeleton.py, compatibility.py
   pipeline/       trajectory.py, evaluator.py, benchmark.py
   visualization/  overlay.py, replay.py
@@ -22,13 +20,11 @@ src/sew_mimic/
 
 Generated `baseline_metrics.csv`, `comparison_frames.csv`, and
 `comparison_summary.json` are ignored by their exact names and remain available
-under `output/`. Existing tracked diagnostic artifacts were not removed.
+under `output/`.
 
 ## Automated tests
 
-- Starting suite: `289 passed in 52.38s`.
-- Suite after API/documentation hardening: `291 passed in 52.09s` in the
-  recorded report run.
+- Final Phase 3 suite: `280 passed` in the recorded acceptance run.
 - Added release coverage imports all documented major APIs and verifies that
   importing Method 2 does not load Method 3.
 - Existing tests retain the pinned SP3 reference, Stereo-SEW round trip, Gen3
@@ -75,7 +71,10 @@ The shared 100-frame continuous-policy comparison was 100/100
 
 There were no joint-limit violations or branch switches. Wrapped joint jumps
 had median `0.016140 rad`, P95 `0.020390 rad`, and maximum `0.024542 rad`.
-Mean solve time was `3.393 s/frame` in this run.
+The final Phase 3 100-frame benchmark was 100/100 `SUCCESS_EXACT`, with one
+global first frame and 99 local-continuation frames. Solver mean/median/P95 were
+`8.477 / 8.624 / 14.208 ms`; the first frame was `30.975 ms`, and total
+solve-loop wall time was `857.342 ms`.
 
 The deterministic three-target backend check was exact on all targets. Its
 pinned narrow case was missed by fixed grids of 200, 400, and 800 samples but
@@ -107,9 +106,8 @@ approximate Gen3 WARP path exists.
 .venv\Scripts\python.exe scripts\measure_baseline.py --input data\test.csv
 .venv\Scripts\python.exe scripts\validate_gen3_sew_geometry.py
 .venv\Scripts\python.exe scripts\validate_warp_core.py
-.venv\Scripts\python.exe scripts\validate_exact_sew_backend.py --count 3
-.venv\Scripts\python.exe scripts\validate_exact_sew_solver.py --input data\test.csv --count 3 --oracle-count 3
-.venv\Scripts\python.exe scripts\compare_retargeters.py --input data\test.csv --methods sew_mimic exact_sew numerical_oracle --exact-branch-policy continuous --max-frames 100 --oracle-max-frames 10
+.venv\Scripts\python.exe scripts\compare_retargeters.py --input data\test.csv --methods sew_mimic exact_sew numerical_oracle --max-frames 100 --oracle-max-frames 10
+.venv\Scripts\python.exe scripts\benchmark_exact_sew.py --input data\test.csv --max-frames 100
 .venv\Scripts\python.exe scripts\replay_compare.py --input data\test.csv --results output\comparison_frames.csv --method sew_mimic --max-frames 3 --no-viewer
 .venv\Scripts\python.exe scripts\replay_compare.py --input data\test.csv --results output\comparison_frames.csv --method exact_sew --max-frames 3 --no-viewer
 ```
@@ -125,8 +123,8 @@ manual smoke test.
 - `sew_mimic.geometry`: SP3 and legacy geometric subproblems.
 - `sew_mimic.sew`: legacy Method 0 adapter, `StereoSew`, reference type, and
   validated Gen3 geometry.
-- `sew_mimic.exact`: candidate enumeration, branch selection, production solve
-  and retarget APIs, plus lazily loaded numerical oracle.
+- `sew_mimic.exact`: stateful compiled production solve and retarget APIs, plus
+  lazily loaded numerical oracle.
 - `sew_mimic.warp`: generic geometry/skeleton core and compatibility gate.
 - `sew_mimic.pipeline`: trajectory preparation, benchmark dispatch, summaries,
   evaluation, and capability metadata.
@@ -135,14 +133,15 @@ manual smoke test.
 
 ## Known limitations and release conclusion
 
-- Optimized event-aware Method 2 remains approximately 2.4 seconds per frame in
-  the latest short Windows validation and is not real-time.
+- The recorded Phase 3 benchmark averaged 8.477 ms per frame; timing should be
+  rechecked with `scripts/benchmark_exact_sew.py` on the deployment machine.
 - `Wrist_XYZ` anatomical meaning is dataset-dependent unless calibrated.
 - Generic fixed-link WARP cannot be applied exactly to the current Gen3 model.
 - Visualization normally requires precomputed Method 2 results.
 - CI was not added because the non-MuJoCo dependencies are not locked and this
   exact suite has not been reproduced on a hosted Linux or Windows runner.
 
-The final diff contains release/API/docs hardening only for Phase 9; no solver
+The final diff contains the Phase 3 production cutover and documentation
+hardening; no solver
 mathematics, coordinate convention, alignment, mounting, or tolerance changed.
 No correctness blocker remains.
