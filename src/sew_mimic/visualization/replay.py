@@ -155,7 +155,8 @@ def load_comparison_rows(
     if method == "warp_csew":
         raise ValueError(
             "warp_csew has a reproduced generic core but is not executable "
-            "on the current fixed-base Gen3"
+            "because this repository has not reproduced the demonstrated "
+            "Kinova parameterization"
         )
     if method not in SUPPORTED_PLAYBACK_METHODS:
         raise ValueError(

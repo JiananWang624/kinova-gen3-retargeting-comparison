@@ -100,7 +100,15 @@ def test_capability_metadata_and_dispatch_exclude_warp_rows():
     assert capabilities["sew_mimic"] == {"executable_on_gen3": True, "role": "baseline"}
     assert capabilities["exact_sew"] == {"executable_on_gen3": True, "role": "recommended"}
     assert capabilities["numerical_oracle"] == {"executable_on_gen3": True, "role": "validation_only"}
-    assert capabilities["warp_csew"]["executable_on_current_gen3"] is False
+    warp = capabilities["warp_csew"]
+    assert warp["kinova_path_reproduced"] is False
+    assert warp["executable_on_current_gen3"] is False
+    assert warp["executable_scope"] == "current_repository_implementation"
+    assert warp["gen3_fixed_link_compatible"] is None
+    assert warp["reason"] == "kinova_parameterization_not_reproduced"
+    assert warp["compatibility"]["scope"] == "tested_definition_only"
+    assert warp["compatibility"]["definition"] == "S1/E45/W67"
+    assert warp["compatibility"]["compatible"] is False
     assert all(row.method != "warp_csew" for row in benchmark.run_benchmark(prepared, methods=("sew_mimic",)).rows)
 
 

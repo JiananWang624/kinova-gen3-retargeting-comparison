@@ -54,10 +54,15 @@ def capability_metadata(
         },
         "warp_csew": {
             "generic_core_reproduced": True,
-            "executable_on_current_gen3": bool(warp.compatible),
-            "gen3_fixed_link_compatible": bool(warp.compatible),
-            "reason": None if warp.compatible else "fixed_link_geometry_incompatible",
+            "kinova_path_reproduced": False,
+            "executable_on_current_gen3": False,
+            "executable_scope": "current_repository_implementation",
+            "gen3_fixed_link_compatible": None,
+            "reason": "kinova_parameterization_not_reproduced",
             "compatibility": {
+                "scope": "tested_definition_only",
+                "definition": "S1/E45/W67",
+                "compatible": bool(warp.compatible),
                 "samples": warp.samples,
                 "seed": warp.seed,
                 "tolerance_m": warp.tolerance_m,

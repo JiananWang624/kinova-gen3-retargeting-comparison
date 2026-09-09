@@ -1,4 +1,4 @@
-"""Deterministic fixed-link compatibility measurements for the validated Gen3."""
+"""Fixed-link measurements for the tested Gen3 S1/E45/W67 definition."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def check_warp_fixed_geometry_compatibility(
     seed: int = 20260912,
     tolerance_m: float = FIXED_GEOMETRY_TOLERANCE_M,
 ) -> WarpCompatibilityReport:
-    """Measure WARP fixed-link quantities using official Gen3 points and pinch FK."""
+    """Measure one tested point definition, not every possible Gen3 WARP path."""
     if not isinstance(robot, Gen3Kinematics) or not isinstance(gen3_geometry, Gen3StereoSewGeometry):
         raise ValueError("robot and gen3_geometry must be validated Gen3 instances")
     if samples < 1 or tolerance_m < 0 or not np.isfinite(tolerance_m):

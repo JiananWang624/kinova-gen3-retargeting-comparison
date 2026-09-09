@@ -10,8 +10,9 @@ Method 3 (`numerical_oracle`) is validation-only and runs only its deterministic
 requested subset; it never seeds or selects any production method.
 
 WARP-cSEW is reported only as capability metadata. Its generic core exists, but
-the current Gen3 fails the fixed-link compatibility measurement, so it never
-creates executable per-frame comparison rows.
+this repository has not reproduced the Kinova-specific parameterization shown
+in the public Dual-Kinova3 demonstration, so it creates no executable per-frame
+comparison rows.
 
 Run the bounded validation comparison from the repository root:
 
@@ -40,8 +41,12 @@ only. Every successful row independently recomputes the physical pinch-site
 pose, joint limits, and robot Stereo-SEW from the MuJoCo-derived FK.
 
 The summary reports the reproduced generic WARP-cSEW core separately from
-solver outcomes. Current Gen3 fixed-link compatibility is false because the
-measured virtual upper-arm length varies by about 0.19513668 m; forearm and
-wrist-to-task variations are at floating-point noise. See
-`docs/WARP_CSEW_CORE.md`. This project does not claim a Gen3 WARP reproduction
-and creates no WARP trajectory rows.
+solver outcomes. Its original capability gate measures the Exact-SEW
+`S1/E45/W67` definition, whose upper-arm length varies by about 0.195 m. The
+separate Phase W1 identification also tests `S23/E45/W67` and the established
+h3/h5 direction proxies: although both candidate link lengths are fixed,
+`S23` moves with joint 1 and the best global fixed proxy model has centimetre-
+scale independent-validation error. These results reject only the tested
+definitions; they do not establish inherent Gen3 incompatibility. See
+`docs/WARP_CSEW_CORE.md`. This project has not yet reproduced the demonstrated
+Kinova WARP path and creates no WARP trajectory rows.

@@ -29,15 +29,15 @@ under `output/`.
   importing Method 2 does not load Method 3.
 - Existing tests retain the pinned SP3 reference, Stereo-SEW round trip, Gen3
   PoE/MuJoCo agreement, selected reference pair, narrow event-aware root,
-  deterministic branches, Gen3 WARP incompatibility, authoritative evaluator,
-  and replay consistency regressions.
+  deterministic branches, Gen3 WARP fixed-skeleton identification,
+  authoritative evaluator, and replay consistency regressions.
 
 ## Capability matrix
 
 | Method | Machine name | Executable on current Gen3 | Final role |
 |---|---|---:|---|
 | 0 | `sew_mimic` | Yes | `baseline` |
-| 1 | `warp_csew` | No | Generic core reproduced; `fixed_link_geometry_incompatible` |
+| 1 | `warp_csew` | Not in this repository | Generic core reproduced; Kinova path not yet reproduced |
 | 2 | `exact_sew` | Yes | `recommended` |
 | 3 | `numerical_oracle` | Yes | `validation_only` |
 
@@ -95,9 +95,17 @@ synthetic compatible cases. Maximum palm error was zero, maximum upper/forearm
 length errors were `1.665e-16 / 2.776e-16 m`, and maximum Stereo-SEW error was
 `8.882e-16 rad`.
 
-The current Gen3 is incompatible: sampled upper-arm proxy length varied by
-`0.19513668 m`, exceeding the `1e-10 m` fixed-geometry tolerance. No
-approximate Gen3 WARP path exists.
+The tested `S1/E45/W67` definition fails its fixed-link gate: its sampled
+upper-arm length varies by about `0.195 m`. Phase W1 then tested the virtual
+`S23/E45/W67` hypothesis. Its two lengths and `p_WT` are invariant at floating-
+point scale, but `S23` moves on an `11.75 mm`-radius circle with joint 1. A
+single fixed model using the validated h3/h5 proxies produced `15.349 mm` mean,
+`24.484 mm` P95, and `25.901 mm` maximum position error on an independent
+1,000-configuration validation set. Within the tested candidate set, the
+classification is `NO_USEFUL_FIXED_SKELETON`. This does not establish inherent
+Gen3 incompatibility: WARP materials explicitly demonstrate Dual-Kinova3, but
+the public details are insufficient to reconstruct the authors' exact Kinova
+parameterization. No Gen3 WARP trajectory path was added to this repository.
 
 ## Validated commands
 
@@ -136,7 +144,10 @@ manual smoke test.
 - The recorded Phase 3 benchmark averaged 8.477 ms per frame; timing should be
   rechecked with `scripts/benchmark_exact_sew.py` on the deployment machine.
 - `Wrist_XYZ` anatomical meaning is dataset-dependent unless calibrated.
-- Generic fixed-link WARP cannot be applied exactly to the current Gen3 model.
+- None of the tested meaningful Gen3 virtual definitions supports exact
+  fixed-link WARP while remaining consistent with the established h3/h5
+  proxies. This repository has not reproduced the demonstrated Dual-Kinova3
+  parameterization; the experiments do not rule out that WARP path.
 - Visualization normally requires precomputed Method 2 results.
 - CI was not added because the non-MuJoCo dependencies are not locked and this
   exact suite has not been reproduced on a hosted Linux or Windows runner.

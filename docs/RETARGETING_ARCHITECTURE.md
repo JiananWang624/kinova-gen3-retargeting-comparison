@@ -15,9 +15,14 @@ failure behavior for direct callers.
 ## Method 1 — WARP-cSEW + Legacy SEW-Mimic
 
 The generic fixed-link corrected-skeleton core is reproduced and validated.
-The current Gen3 fails its fixed-link compatibility gate because the selected
-upper-arm proxy length varies with configuration. Consequently there is no
-executable Gen3 WARP trajectory path and no claim of a Gen3 WARP reproduction.
+The original Exact-SEW point definition fails the fixed-link gate. Phase W1
+also found that none of the tested kinematically meaningful virtual definitions
+provides a fixed skeleton consistent with the established h3/h5 proxies below
+the practical position threshold. Consequently there is no executable Gen3
+WARP trajectory path in this repository. WARP materials explicitly demonstrate
+Dual-Kinova3; the missing capability here means its Kinova-specific
+parameterization has not yet been reproduced, not that Gen3 is inherently
+incompatible or that all virtual definitions have been disproved.
 
 ## Method 2 — Exact Pose + Stereo-SEW Gen3 IK
 

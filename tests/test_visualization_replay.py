@@ -227,7 +227,7 @@ def test_replay_consistency_rejects_stale_phase7_metrics():
 def test_result_loading_rejects_warp_and_missing_selected_rows(tmp_path):
     path = tmp_path / "comparison.csv"
     _write(path, [])
-    with pytest.raises(ValueError, match="not executable"):
+    with pytest.raises(ValueError, match="has not reproduced.*Kinova parameterization"):
         load_comparison_rows(path, "warp_csew", (0,))
     with pytest.raises(ValueError, match="selected frames"):
         load_comparison_rows(path, "exact_sew", (0,))

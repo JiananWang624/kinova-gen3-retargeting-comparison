@@ -7,7 +7,7 @@ from sew_mimic.sew import Gen3StereoSewGeometry
 from sew_mimic.warp.compatibility import check_warp_fixed_geometry_compatibility
 
 
-def test_gen3_is_deterministically_incompatible_with_fixed_warp_geometry() -> None:
+def test_s1_e45_w67_is_deterministically_not_fixed_link_geometry() -> None:
     robot = gen3_kinematics()
     report = check_warp_fixed_geometry_compatibility(robot, Gen3StereoSewGeometry.from_robot(robot))
     assert not report.compatible

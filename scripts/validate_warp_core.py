@@ -1,4 +1,4 @@
-"""Validate generic fixed-link WARP construction and Gen3 incompatibility."""
+"""Validate generic WARP construction and one tested Gen3 point definition."""
 
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ def main() -> int:
         samples=arguments.compatibility_samples,
         seed=arguments.seed,
     )
-    print("B. GEN3 COMPATIBILITY")
+    print("B. TESTED GEN3 S1/E45/W67 DEFINITION")
     print(
         {
             "samples": report.samples,
@@ -136,9 +136,9 @@ def main() -> int:
             "tolerance_m": report.tolerance_m,
         }
     )
-    print("WARP fixed-link compatible:", "YES" if report.compatible else "NO")
+    print("Tested S1/E45/W67 fixed geometry:", "PASS" if report.compatible else "FAIL")
     if report.compatible:
-        raise RuntimeError("validated Gen3 unexpectedly passed the WARP fixed-link gate")
+        raise RuntimeError("S1/E45/W67 unexpectedly passed its fixed-link gate")
     return 0
 
 

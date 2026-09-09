@@ -5,6 +5,7 @@ from .compatibility import (
     check_warp_fixed_geometry_compatibility,
 )
 from .geometry import WarpArmGeometry, compute_adaptive_offset
+from .identification import identify_fixed_skeleton
 from .skeleton import (
     WarpSkeletonResult,
     WarpSkeletonStatus,
@@ -19,4 +20,5 @@ __all__ = [
     "check_warp_fixed_geometry_compatibility",
     "compute_adaptive_offset",
     "construct_warp_skeleton",
+    "identify_fixed_skeleton",
 ]

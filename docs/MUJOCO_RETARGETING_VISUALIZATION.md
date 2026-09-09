@@ -13,8 +13,9 @@ This verification is FK-only and does not invoke candidate generation or IK.
 
 Supported Gen3 playback labels are `sew_mimic`, `exact_sew` (the default), and
 `numerical_oracle` (validation only). WARP-cSEW has a reproduced generic core,
-but the present Gen3 fails its fixed-link compatibility gate, so
-`warp_csew` is rejected rather than treated as a failed IK trajectory.
+but Phase W1 found no useful fixed skeleton among the definitions it tested.
+Because this repository has not reproduced the Kinova-specific path shown by
+WARP, `warp_csew` is rejected rather than treated as a failed IK trajectory.
 
 ## Overlay convention
 
