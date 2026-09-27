@@ -33,7 +33,10 @@ def test_fixed_model_and_official_tcp():
 def test_fixed_body_to_base_calibration_does_not_follow_first_frame():
     rotation, translation = fixed_body_to_base_transform()
     assert np.allclose(rotation, np.eye(3))
-    assert np.allclose(translation, [0.5299635435, -0.0406565780, 0.4919458315])
+    calibration = CONFIG["tiago"]["calibration"]
+    assert np.allclose(translation, [0.6563659554336978, -0.045917781031984586, 0.4609458315])
+    assert np.allclose(calibration["baseline_j1_arm_root"]["t_base_from_body_m"],
+                       [0.5299635435, -0.0406565780, 0.4919458315])
     trajectory = prepare_tiago_trajectory("data/test.csv", start_frame=100, max_frames=1)
     assert trajectory.frames[0].frame == 100
     assert np.allclose(trajectory.robot.data.xpos[1], np.zeros(3))
@@ -41,6 +44,7 @@ def test_fixed_body_to_base_calibration_does_not_follow_first_frame():
 
 def test_sew_identification_is_reproducible_and_solver_independent():
     report = calibration_report("data/test.csv")
+    assert report["reference_joint_name"] == "arm_2_joint"
     assert report["translation_drift_m"] < 1e-12
     assert report["model_fingerprint_matches_config"]
     assert report["sew_candidates"][0]["candidate"] == "J2/J4/wrist_center"
@@ -101,9 +105,15 @@ def test_semi_analytic_boundary_refinement_recovers_strict_csv_targets():
     solver = TiagoSewSolver(trajectory.robot, trajectory.geometry)
     solver.settings = dict(solver.settings)
     solver.settings["recovery_seeds"] = 16
+    calibration = CONFIG["tiago"]["calibration"]
+    baseline_shift = (np.asarray(calibration["baseline_j1_arm_root"]["t_base_from_body_m"])
+                      - np.asarray(calibration["t_base_from_body_m"]))
     for frame_id in (688, 1677, 2967):
         frame = trajectory.frames[frame_id]
-        result = solver.solve(trajectory.geometry.target(frame.target))
+        active_target = trajectory.geometry.target(frame.target)
+        baseline_target = TiagoSewTarget(active_target.position + baseline_shift,
+                                         active_target.rotation, active_target.psi)
+        result = solver.solve(baseline_target)
         assert result.q is not None, (frame_id, result.message)
         assert result.diagnostics.branch_id.endswith("-boundary")
         assert result.diagnostics.position_error_m < 0.001

@@ -112,8 +112,11 @@ def calibration_report(csv_path: str | Path) -> dict[str, object]:
     human = load_human_trajectory_csv(csv_path)
     shoulder_body = np.median(human.shoulders, axis=0)
     q = np.array(settings["home_q_rad"], dtype=float)
-    shoulder_base = robot.axes_and_anchors(q)[1][0]
     transform = settings["calibration"]
+    reference_joint = transform["reference_joint_name"]
+    if transform["reference_pose"] != "home_q_rad" or reference_joint not in robot.joint_names:
+        raise ValueError("TIAGo calibration must use a named arm joint at home_q_rad")
+    shoulder_base = robot.axes_and_anchors(q)[1][robot.joint_names.index(reference_joint)]
     rotation = np.asarray(transform["R_base_from_body"], dtype=float)
     offset = np.asarray(transform["user_xyz_offset_base_m"], dtype=float)
     translation = shoulder_base - rotation @ shoulder_body + offset
@@ -122,7 +125,8 @@ def calibration_report(csv_path: str | Path) -> dict[str, object]:
     base_points = np.einsum("ij,tkj->tki", rotation, body_points) + translation
     selection = identify_sew(robot, base_points)
     validation = identify_sew(robot, base_points, seed=20260928)
-    return {"frames": len(human), "shoulder_reference_body_m": shoulder_body.tolist(),
+    return {"frames": len(human), "reference_joint_name": reference_joint,
+            "shoulder_reference_body_m": shoulder_body.tolist(),
             "shoulder_reference_base_m": shoulder_base.tolist(),
             "t_base_from_body_m": translation.tolist(),
             "translation_drift_m": float(np.linalg.norm(translation - measured)),

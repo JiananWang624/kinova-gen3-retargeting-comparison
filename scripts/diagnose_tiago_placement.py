@@ -104,7 +104,7 @@ def _viewer(robot, wrists: np.ndarray, workspace: np.ndarray,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "data" / "test.csv")
-    parser.add_argument("--output", type=Path, default=ROOT / "output" / "tiago_placement")
+    parser.add_argument("--output", type=Path, default=ROOT / "output" / "tiago_placement" / "active_j2")
     parser.add_argument("--workspace-samples", type=int, default=20000)
     parser.add_argument("--position-check-frames", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260929)
@@ -115,16 +115,18 @@ def main() -> None:
 
     trajectory = prepare_tiago_trajectory(args.input)
     robot = trajectory.robot
+    calibration = CONFIG["tiago"]["calibration"]
     targets = tuple(frame.target for frame in trajectory.frames)
     shoulders = np.array([target.shoulder for target in targets])
     wrists = np.array([target.task_point for target in targets])
     root = robot.axes_and_anchors(np.asarray(CONFIG["tiago"]["home_q_rad"]))[1][0]
-    shoulder = np.asarray(CONFIG["tiago"]["calibration"]["shoulder_reference_base_m"])
-    if not np.allclose(root, shoulder, atol=1e-10, rtol=0):
-        raise ValueError(f"arm root {root} differs from calibrated shoulder {shoulder}")
+    shoulder = np.asarray(calibration["shoulder_reference_base_m"])
+    selected_shoulder = robot.sew_points(np.asarray(CONFIG["tiago"]["home_q_rad"])).shoulder
+    if not np.allclose(selected_shoulder, shoulder, atol=1e-10, rtol=0):
+        raise ValueError(f"selected shoulder {selected_shoulder} differs from calibration {shoulder}")
     median_shoulder = np.median(shoulders, axis=0)
     if not np.allclose(median_shoulder, shoulder, atol=1e-6, rtol=0):
-        raise ValueError(f"transformed median shoulder {median_shoulder} differs from arm root {root}")
+        raise ValueError(f"transformed median shoulder {median_shoulder} differs from selected shoulder {shoulder}")
 
     rng = np.random.default_rng(args.seed)
     lower, upper = robot.joint_limits.T
@@ -141,7 +143,6 @@ def main() -> None:
         errors.append(error)
     errors = np.asarray(errors)
     robot.axes_and_anchors(np.asarray(CONFIG["tiago"]["home_q_rad"]))
-    selected_shoulder = robot.sew_points(np.asarray(CONFIG["tiago"]["home_q_rad"])).shoulder
     arm = np.vstack((root, robot.data.xanchor[robot.joint_ids],
                      robot.data.site_xpos[robot.tcp_id]))
 
@@ -151,12 +152,15 @@ def main() -> None:
         "target_frames": len(wrists), "workspace_samples": args.workspace_samples,
         "sample_seed": args.seed,
         "arm_root_base_m": root.tolist(),
+        "calibration_reference_joint_name": calibration["reference_joint_name"],
         "selected_sew_shoulder_at_home_base_m": selected_shoulder.tolist(),
         "selected_sew_shoulder_from_arm_root_m": (selected_shoulder - root).tolist(),
         "selected_sew_shoulder_to_arm_root_distance_m":
             float(np.linalg.norm(selected_shoulder - root)),
         "median_human_shoulder_base_m": median_shoulder.tolist(),
         "shoulder_median_to_root_m": float(np.linalg.norm(median_shoulder - root)),
+        "shoulder_median_to_calibration_reference_m":
+            float(np.linalg.norm(median_shoulder - shoulder)),
         "wrist_bounds_base_m": [wrists.min(axis=0).tolist(), wrists.max(axis=0).tolist()],
         "workspace_sample_bounds_base_m": [workspace.min(axis=0).tolist(), workspace.max(axis=0).tolist()],
         "nearest_workspace_sample_distance_mm_p50_p95_max":
