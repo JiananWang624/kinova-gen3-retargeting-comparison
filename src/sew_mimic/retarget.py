@@ -189,9 +189,10 @@ def sew_mimic(
     elbow: ArrayLike,
     wrist: ArrayLike,
     H: ArrayLike,
+    robot: Gen3Kinematics | None = None,
 ) -> tuple[Vector, RetargetDiagnostics]:
-    """Implement Algorithm 1 for the MuJoCo Menagerie Kinova Gen3."""
-    robot = gen3_kinematics()
+    """Implement Algorithm 1 on the explicitly supplied seven-joint arm."""
+    robot = robot if robot is not None else gen3_kinematics()
 
     # Algorithm 1, line 1: initialize the output configuration from q0.
     q = _configuration(q0, robot.dof).copy()

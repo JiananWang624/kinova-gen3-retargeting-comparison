@@ -16,6 +16,72 @@ robot:
   # 整个 Gen3 root 在 MuJoCo world 中的额外 XYZ 平移，单位 m；默认不偏移。
   world_offset_m: [0.0, 0.15, 0.2]
 
+# Fixed-base TIAGo Steel calibration. The legacy Gen3 keys above remain only
+# until the new trajectory path has passed its independent validation gates.
+tiago:
+  model_path: assets/pal_tiago/tiago.xml
+  fingerprint_path: assets/pal_tiago/tiago.xml
+  model_sha256: ce67d8be29f6a9f57c6ee0ba2d809f63801e13d9025de490cee8b462f3f95e3f
+  menagerie_revision: c96a32d
+  base_frame: base_link
+  arm_root_joint: arm_1_joint
+  tcp_site: gripper_grasping_frame
+  joint_names: [arm_1_joint, arm_2_joint, arm_3_joint, arm_4_joint, arm_5_joint, arm_6_joint, arm_7_joint]
+  joint_limits_rad:
+    - [0.0, 2.74889]
+    - [-1.5708, 1.09083]
+    - [-3.53429, 1.5708]
+    - [-0.392699, 2.35619]
+    - [-2.0944, 2.0944]
+    - [-1.41372, 1.41372]
+    - [-2.0944, 2.0944]
+  home_q_rad: [1.374445, -0.239985, -0.981745, 0.9817455, 0.0, 0.0, 0.0]
+  baseline_proxy_signs:
+    h3: -1.0
+    h5: 1.0
+  fixed_joints:
+    torso_lift_joint: 0.15
+    head_1_joint: 0.0
+    head_2_joint: 0.0
+    gripper_left_finger_joint: 0.03
+    gripper_right_finger_joint: 0.03
+  calibration:
+    revision: median-body-4344-torso015-v1
+    base_world_yaw_deg: 0.0
+    R_base_from_body:
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [0.0, 0.0, 1.0]
+    shoulder_reference_body_m: [-0.4369135435, 0.0546565780, 0.3955541685]
+    shoulder_reference_base_m: [0.09305, 0.014, 0.8875]
+    t_calibrated_m: [0.5299635435, -0.0406565780, 0.4919458315]
+    user_xyz_offset_base_m: [0.0, 0.0, 0.0]
+    t_base_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
+  sew:
+    candidate_order: [J1/J4/wrist_center, J1/J34/wrist_center, J1/J45/wrist_center, J2/J4/wrist_center, J12/J4/wrist_center]
+    selected: [J2, J4, wrist_center]
+    e_t: [-1.0, 0.0, 0.0]
+    e_r: [0.0, 1.0, 0.0]
+    identification:
+      calibration_seed: 20260927
+      validation_seed: 20260928
+      samples_per_split: 300
+      calibration_margin_p1: 0.16416543399760355
+      validation_margin_p1: 0.131877
+      point_continuity_p95_m: 0.00010258710959982105
+      psi_continuity_p95_rad: 0.0003262346227432377
+      jacobian_condition_p95: 66.28539434289593
+  solver:
+    backend: tiago_numerical
+    position_tolerance_m: 0.001
+    orientation_tolerance_rad: 0.017453292519943295
+    sew_tolerance_rad: 0.017453292519943295
+    local_max_nfev: 80
+    global_max_nfev: 300
+    recovery_seeds: 128
+  warp:
+    fixed_skeleton_tolerance_m: 0.001
+
 human_csv:
   # 默认 human trajectory CSV，相对于项目根目录。
   input_path: data/test.csv

@@ -47,6 +47,7 @@ def solve_legacy_sew_mimic(
     elbow: ArrayLike,
     wrist: ArrayLike,
     hand_rotation: ArrayLike,
+    robot=None,
 ) -> SolverResult:
     """Run Method 0 through the shared result contract.
 
@@ -55,7 +56,7 @@ def solve_legacy_sew_mimic(
     Method 0 does not constrain or validate human-hand/pinch-site position.
     """
     try:
-        q, legacy = sew_mimic(q0, shoulder, elbow, wrist, hand_rotation)
+        q, legacy = sew_mimic(q0, shoulder, elbow, wrist, hand_rotation, robot)
     except ValueError as error:
         return SolverResult(
             method=METHOD_NAME,
