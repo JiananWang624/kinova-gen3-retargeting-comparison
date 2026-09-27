@@ -8,7 +8,6 @@ from scipy.spatial.transform import Rotation
 from sew_mimic.csv_adapter import (
     R_BODY_FROM_CSV,
     R_INPUT_ALIGN,
-    SHOULDER_ANCHOR_WORLD,
     HumanCSVAdapter,
     REQUIRED_COLUMNS,
     load_human_trajectory_csv,
@@ -223,11 +222,6 @@ def test_csv_adapter_default_matches_supplied_absolute_body_frame() -> None:
         [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
     )
     assert adapter.position_scale == 0.001
-    np.testing.assert_allclose(
-        adapter.position_to_world([-64.043259, 342.198364, -448.858765]),
-        SHOULDER_ANCHOR_WORLD,
-        atol=0.0,
-    )
 
 
 def test_csv_adapter_rejects_previous_improper_reflection() -> None:

@@ -1,10 +1,13 @@
 """Focused TIAGo model, fixed calibration, and solver gates."""
 
 import numpy as np
+import pandas as pd
 from scipy.spatial.transform import Rotation
 
 from sew_mimic.config import CONFIG
-from sew_mimic.pipeline.tiago import fixed_body_to_base_transform, prepare_tiago_trajectory
+from sew_mimic.pipeline.tiago import (fixed_body_to_base_transform,
+                                      prepare_tiago_trajectory,
+                                      run_tiago_benchmark)
 from sew_mimic.tiago import (TiagoKinematics, TiagoSewGeometry, TiagoSewSolver,
                               TiagoSewTarget, validate_spherical_wrist)
 from sew_mimic.tiago.calibration import calibration_report
@@ -115,3 +118,26 @@ def test_semi_analytic_boundary_refinement_recovers_strict_csv_targets():
         assert result.diagnostics.sew_error_rad < np.deg2rad(1)
         assert np.all(result.q >= trajectory.robot.joint_limits[:, 0] - 1e-12)
         assert np.all(result.q <= trajectory.robot.joint_limits[:, 1] + 1e-12)
+
+
+def test_fixed_j1_pipeline_and_headless_replay(tmp_path):
+    from scripts.replay_tiago import main as replay_main
+
+    trajectory = prepare_tiago_trajectory("data/test.csv", start_frame=688, max_frames=1)
+    robot = trajectory.robot
+    q_home = np.asarray(CONFIG["tiago"]["home_q_rad"])
+    assert np.allclose(robot.sew_points(q_home).shoulder, robot.axes_and_anchors(q_home)[1][0])
+    rows, summary = run_tiago_benchmark(trajectory, methods=("tiago_sew",))
+    assert summary["reachable_success"] == 1
+    assert rows[0]["backend"] == "tiago_semi_analytic"
+    assert rows[0]["calibration_revision"] == CONFIG["tiago"]["calibration"]["revision"]
+    assert rows[0]["ee_position_error_mm"] < 1
+    assert rows[0]["ee_orientation_error_deg"] < 1
+    assert rows[0]["sew_angle_error_deg"] < 1
+    for name, value in CONFIG["tiago"]["fixed_joints"].items():
+        joint_id = robot.fixed_joint_ids[name]
+        assert robot.data.qpos[robot.model.jnt_qposadr[joint_id]] == value
+    saved = tmp_path / "comparison_frames.csv"
+    pd.DataFrame(rows).to_csv(saved, index=False)
+    assert replay_main(["--input", "data/test.csv", "--results", str(saved),
+                        "--max-frames", "1", "--no-viewer"]) == 0

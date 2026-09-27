@@ -51,7 +51,8 @@ def _plot(path: Path, shoulders: np.ndarray, wrists: np.ndarray,
     ax.scatter(*workspace.T, s=0.35, alpha=0.055, c="steelblue", label="MuJoCo TCP samples")
     ax.scatter(*wrists.T, s=1, alpha=0.24, c="darkorange", label="all human wrist targets")
     ax.scatter(*root, s=80, c="black", marker="x", label="TIAGo arm root")
-    ax.scatter(*selected_shoulder, s=65, c="purple", marker="D", label="selected SEW S (J2)")
+    ax.scatter(*selected_shoulder, s=65, c="purple", marker="D",
+               label=f"selected SEW S ({CONFIG['tiago']['sew']['selected'][0]})")
     ax.scatter(*np.median(shoulders, axis=0), s=65, c="crimson", marker="+",
                label="median human shoulder")
     ax.plot(*arm.T, c="black", linewidth=2, label="home arm joint anchors")
@@ -104,7 +105,7 @@ def _viewer(robot, wrists: np.ndarray, workspace: np.ndarray,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "data" / "test.csv")
-    parser.add_argument("--output", type=Path, default=ROOT / "output" / "tiago_placement" / "active_j2")
+    parser.add_argument("--output", type=Path, default=ROOT / "output" / "tiago_j1_placement")
     parser.add_argument("--workspace-samples", type=int, default=20000)
     parser.add_argument("--position-check-frames", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260929)

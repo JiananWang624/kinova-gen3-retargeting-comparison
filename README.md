@@ -1,239 +1,106 @@
-# Kinova Gen3 Retargeting Comparison
+# TIAGo Steel arm retargeting
 
-This repository keeps four retargeting roles separate for the fixed-base Kinova
-Gen3 7-DoF arm: the original SEW-Mimic baseline, a generic WARP-cSEW
-reproduction, the production Exact-SEW solver, and a numerical validation
-oracle. Human
-shoulder/elbow/wrist geometry and hand orientation are converted to robot joint
-configurations and evaluated with the real MuJoCo-derived `pinch_site` forward
-kinematics.
+This repository retargets a human arm trajectory to the fixed-base, single-arm
+**TIAGo Steel** MuJoCo model. The only optimized joints are `arm_1_joint` through
+`arm_7_joint`; torso lift is fixed at 0.15 m, head at neutral, and each parallel
+gripper finger at 0.030 m. The base remains on the ground and never moves to
+follow a target. All pose metrics use the model's `gripper_grasping_frame` site
+as the single TCP.
 
-The recommended Gen3 method is **Method 2: Exact-SEW**. The original SEW-Mimic
-implementation remains unchanged as the regression baseline.
+The model and assets are vendored from [MuJoCo Menagerie `pal_tiago`](https://github.com/google-deepmind/mujoco_menagerie/tree/main/pal_tiago)
+at commit `c96a32d` (v2026.9.2). See [the model notes](assets/pal_tiago/README.md),
+[project patches](assets/pal_tiago/PROJECT_PATCHES.md), and
+[license](assets/pal_tiago/LICENSE). The grasping site follows the
+[PAL gripper definition](https://github.com/pal-robotics/pal_gripper/blob/humble-devel/pal_gripper_description/urdf/gripper.urdf.xacro).
 
-> **Coding-agent entry point:** read [HANDOFF.md](HANDOFF.md) before changing
-> source. It records the current production path, non-negotiable coordinate
-> conventions, acceptance thresholds, WARP boundary, test state, and file map.
-> Treat code, tests, and `config.yaml` as the final authority when a historical
-> phase document differs.
+## Fixed geometry and calibration
 
-## Methods and capabilities
-
-| Method | Package / API | Gen3 capability | Role |
-|---|---|---|---|
-| 0: SEW-Mimic | `sew_mimic.sew.solve_legacy_sew_mimic` | Executable | Baseline |
-| 1: WARP-cSEW | `sew_mimic.warp` | Kinova path not yet reproduced in this repository | Generic fixed-link core reproduction |
-| 2: Exact-SEW | `sew_mimic.exact.solve_exact_sew` | Executable | Recommended fixed-base solver |
-| 3: numerical exact-pose + SEW | `sew_mimic.exact.NumericalExactSewOracle` | Executable | Validation only |
-
-Method 1 reproduces generic c-SEW corrected-skeleton geometry. WARP materials
-explicitly demonstrate Dual-Kinova3, so this project does not claim that Gen3
-is inherently incompatible with WARP. Phase W1 found only that the tested
-`S1/E45/W67`, `S23/E45/W67`, and h3/h5-based fixed models were insufficient:
-the best global proxy model retained about 15.35 mm mean / 25.90 mm maximum
-independent-validation position error. The authors' exact Kinova-specific
-parameterization is not available in enough public detail to reconstruct here;
-therefore this repository has not yet reproduced a Gen3 WARP trajectory path.
-
-## Architecture
+`config.yaml` is the runtime authority. The CSV adapter first converts the
+human data into body-world coordinates. One stored rigid transform then maps
+every frame into TIAGo base coordinates:
 
 ```text
-src/sew_mimic/
-  common/         shared targets, statuses, task point, and FK evaluation
-  sew/            legacy Method 0 adapter and Stereo-SEW representation
-  exact/          compiled Method 2 solver and lazy Method 3 oracle
-  warp/           generic WARP core and tested Gen3 geometry diagnostics
-  pipeline/       mounted trajectory preparation, dispatch, and benchmark
-  visualization/  precomputed replay and display-only overlays
+p_base = R_base_from_body @ p_body + t_base_from_body
+H_base = R_base_from_body @ H_body
 ```
 
-Method 2 uses one stateful compiled event solver per trajectory. It applies
-MuJoCo-derived pinch-site acceptance (`<1 mm` position, `<1 degree` aligned
-orientation, and `<1 degree` Stereo-SEW error) and never falls back to Method 3.
-`SUCCESS_EXACT` means all constraints claimed by that method passed their
-documented post-validation thresholds; it does not mean mathematical zero.
+The current rotation is identity. The robust median human shoulder is
+`[-0.4369135435, 0.0546565780, 0.3955541685]` m in body-world; the TIAGo
+J1 arm-root is `[0.09305, 0.014, 0.8875]` m in base coordinates. Their
+one-time alignment gives `t_base_from_body = [0.5299635435, -0.0406565780,
+0.4919458315]` m with zero user offset. Normal comparison and replay only
+read this transform; they never recalibrate or move the base per frame.
 
-## Installation on Windows
+The locked Stereo-SEW points are **S=J1 arm-root, E=J4 anchor, W=the validated
+spherical-wrist center**. The reference pair is `e_t=[-1,0,0]`, `e_r=[0,1,0]`.
+The former J1/J2 placement experiment did **not** compare these shoulder
+definitions: it changed the alignment while keeping `S=J2`. It is not used
+to select the final geometry.
 
-The validated environment is Python 3.11 with MuJoCo 3.1.6.
+## Methods
+
+| Role | Implementation | Status |
+|---|---|---|
+| Method 0 | TIAGo SEW-Mimic baseline | Executable comparison |
+| Method 1 | Generic WARP corrected-skeleton core | Diagnostic only: selected TIAGo fixed skeleton fails invariance |
+| Method 2 | `tiago_sew`, stateful semi-analytic IK | Active fast path |
+| Method 3 | Independent MuJoCo/SciPy numerical oracle | Validation only |
+
+Method 2 numerically solves J1–J4 for wrist-center position and Stereo-SEW,
+then enumerates exact spherical-wrist branches for J5–J7. A real-model
+geometric hard gate must pass before this backend starts. If an analytic wrist
+branch just exceeds a physical limit, one bounded local 7D correction is
+allowed; every returned solution is checked against independent MuJoCo pose,
+SEW, and joint-limit thresholds. There is no silent per-frame oracle or
+numerical-backend fallback. The separate `tiago_numerical` backend remains a
+correctness reference and possible fallback candidate, not the active path.
+
+## Install and run
+
+Use Python 3.11 and MuJoCo 3.1.6 from the repository root:
 
 ```powershell
 py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e .[test]
+.venv\Scripts\python.exe -m pytest -q tests/test_tiago_core.py
 ```
 
-Run commands from the repository root. The scripts add `src/` to their import
-path for Python modules, but the editable installation above is required to
-build the private `_exact_sew_core` extension used by Method 2.
-
-## Conventions that must remain stable
-
-- The robot is physically fixed-base; never move its root per frame to make a
-  target reachable.
-- Human targets are transformed into the native Gen3 base frame before solving.
-- The default task point is `Wrist_X/Y/Z`; no anatomical palm offset is assumed.
-- Final pose metrics use MuJoCo `pinch_site` FK and the established
-  `R_robot_align`, never display geometry.
-- Stereo-SEW uses `e_t = [0, 0, -1]` and `e_r = [1, 0, 0]`.
-- CSV rotation, mounting, Gen3 axes, and the negative h3/h5 proxy signs are
-  validated conventions, not tuning parameters.
-
-See [HANDOFF.md](HANDOFF.md) for the exact transform chain and configuration
-values.
-
-## Validate
-
-Run the complete automated suite:
+The default CLI processes a bounded number of frames without an oracle:
 
 ```powershell
-.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe scripts\compare_tiago.py --start-frame 640 --max-frames 60 --output-dir output\tiago_run
+.venv\Scripts\python.exe scripts\replay_tiago.py --results output\tiago_run\comparison_frames.csv --max-frames 60 --no-viewer
 ```
 
-Reproduce the Method 1 Gen3 virtual-skeleton identification:
+Omit `--no-viewer` to view the fixed full robot, human overlay, S/E/W, target,
+and actual TCP in MuJoCo. Replay independently recomputes and checks saved
+errors from MuJoCo FK. To inspect calibration and placement without an IK run:
 
 ```powershell
-.venv\Scripts\python.exe scripts\identify_gen3_warp_skeleton.py --samples 1000
+.venv\Scripts\python.exe -m sew_mimic.tiago.calibration --check
+.venv\Scripts\python.exe scripts\diagnose_tiago_placement.py
 ```
 
-Measure the preserved Method 0 baseline over the input CSV:
+The placement diagnostic writes a 3D plot and JSON report. Add `--viewer` for
+an interactive full-robot point-cloud view. `calibration --write` is the only
+explicit command that rewrites stored model/calibration values; it preserves
+the locked J1/J4/wrist-center SEW definition.
 
-```powershell
-.venv\Scripts\python.exe scripts\measure_baseline.py --input data\test.csv
-```
+## Bounded validation and limits
 
-Compare Method 0, recommended Method 2, and the bounded Method 3 oracle:
+The committed [J1 validation report](output/tiago_j1_validation/report.json)
+covers consecutive frames 640–699, plus two historical boundary frames. The
+robust shoulder and J1 arm-root coincide to floating-point precision;
+position-only fitting succeeds on all 60 continuous targets. Twenty-one
+frames have strict full pose+SEW+physical-limit solutions. The independent
+oracle found 17 of them; the semi-analytic solver missed none and found four
+additional strict solutions that the finite oracle search missed. Its returned
+solutions stayed below **1 mm position, 1° orientation, and 1° SEW error**.
+Solve-time P50/P95 on this window was approximately **159/172 ms**; the P95
+maximum wrapped joint step across adjacent solved frames was **0.71°/frame**.
 
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods sew_mimic exact_sew numerical_oracle `
-  --max-frames 100 `
-  --oracle-max-frames 10
-```
-
-This writes regenerable `output/comparison_frames.csv` and
-`output/comparison_summary.json`. The Phase 3 stateful C++ path recorded about
-8.48 ms per frame on the 100-frame benchmark; rerun the benchmark on the target
-machine before treating timing as a release measurement.
-
-Exact-SEW continuation and bounded global recovery are always enabled for a
-trajectory. Its sole runtime controls are the `exact_sew` mapping in
-`config.yaml`.
-
-### 选择方法和帧范围
-
-`--methods` 可以指定一个或多个方法；`--start-frame` 从 0 开始计数，
-`--max-frames` 指定最多处理多少帧，`--stride` 指定帧间隔。
-
-只运行方法 2 的第 100 帧：
-
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods exact_sew `
-  --start-frame 100 `
-  --max-frames 1
-```
-
-运行方法 0 的第 100–199 帧（包含两端）：
-
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods sew_mimic `
-  --start-frame 100 `
-  --max-frames 100
-```
-
-运行方法 2 的全部 CSV 帧：
-
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods exact_sew `
-  --all
-```
-
-同时运行方法 0 和方法 2 的全部 CSV 帧：
-
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods sew_mimic exact_sew `
-  --all
-```
-
-方法 3 是验证用数值 oracle，默认只运行前 10 帧。若确实需要让它覆盖
-全部 CSV 帧，必须把 `--oracle-max-frames` 设置为数据帧数；这通常会非常慢：
-
-```powershell
-.venv\Scripts\python.exe scripts\compare_retargeters.py `
-  --input data\test.csv `
-  --methods numerical_oracle `
-  --all `
-  --oracle-max-frames 4344
-```
-
-上面的 `4344` 需要替换成实际 CSV 的总帧数。比较结果统一写入
-`output/comparison_frames.csv` 和 `output/comparison_summary.json`。
-
-Replay precomputed Method 2 results interactively:
-
-```powershell
-.venv\Scripts\python.exe scripts\replay_compare.py `
-  --input data\test.csv `
-  --results output\comparison_frames.csv `
-  --method exact_sew `
-  --max-frames 100
-```
-
-Add `--no-viewer` for headless replay-file and evaluator consistency checks.
-Use `--method sew_mimic` to inspect the baseline. Replay never runs Method 2
-IK; it uses precomputed configurations and independently verifies their stored
-metrics.
-
-Replay 已经计算完成的全部帧：
-
-```powershell
-.venv\Scripts\python.exe scripts\replay_compare.py `
-  --input data\test.csv `
-  --results output\comparison_frames.csv `
-  --method exact_sew `
-  --all
-```
-
-如果只想无窗口验证全部结果，在命令末尾加 `--no-viewer`。回放方法 0 时将
-`--method exact_sew` 改为 `--method sew_mimic`；回放方法 3 时改为
-`--method numerical_oracle`。
-
-## Validated findings
-
-- Method 0 preserves exact aligned hand orientation but has a large nonzero
-  physical pinch-position mismatch because position is not its solve
-  constraint.
-- Method 2 matches the fixed-base pinch position, aligned pinch orientation,
-  and human Stereo-SEW angle below the exact thresholds on the validated
-  trajectory subset.
-- Method 3 agrees with Method 2 on the validation subset and remains an oracle,
-  never a production fallback.
-- Generic WARP fixed-link synthetic cases are exact. The tested Gen3 virtual
-  definitions do not supply a fixed skeleton consistent with the established
-  h3/h5 proxies below the 1 mm practical threshold; this does not contradict
-  the Dual-Kinova3 WARP demonstration or rule out its unpublished details.
-
-The configured human task point defaults to `Wrist_X/Y/Z`. Its anatomical
-meaning remains dataset-dependent unless a wrist-to-task offset is calibrated.
-Visualization offsets never affect targets, solver inputs, or metrics.
-
-## Detailed documentation
-
-- [Retargeting architecture](docs/RETARGETING_ARCHITECTURE.md)
-- [Stereo-SEW convention](docs/STEREO_SEW.md)
-- [Validated Gen3 geometry](docs/GEN3_STEREO_SEW_GEOMETRY.md)
-- [Exact-SEW solver and branch policies](docs/GEN3_EXACT_SEW_SOLVER.md)
-- [Numerical oracle](docs/NUMERICAL_EXACT_SEW_ORACLE.md)
-- [Generic WARP core and compatibility](docs/WARP_CSEW_CORE.md)
-- [Unified comparison](docs/RETARGETING_COMPARISON.md)
-- [MuJoCo replay](docs/MUJOCO_RETARGETING_VISUALIZATION.md)
-- [Final engineering report](docs/FINAL_ENGINEERING_REPORT.md)
-- [Engineering handoff](HANDOFF.md)
+Most strict solutions are close to a joint limit (median limit margin is
+effectively zero). An oracle search failure is not a proof of unreachability;
+the report preserves its raw classification and separate strict-solution
+evidence. No full 4,344-frame retargeting run or all-data oracle sweep was
+performed. See [HANDOFF.md](HANDOFF.md) for engineering details and boundaries.

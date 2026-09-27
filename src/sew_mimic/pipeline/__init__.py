@@ -1,28 +1,21 @@
-"""Unified fixed-base Gen3 retargeting/evaluation pipeline."""
+"""Fixed-calibration TIAGo retargeting and evaluation."""
 
-from .trajectory import (
-    PreparedTrajectory,
-    TrajectoryFrame,
-    prepare_trajectory,
+from .tiago import (
+    TiagoFrame,
+    TiagoTrajectory,
+    evaluate_tiago_result,
+    fixed_body_to_base_transform,
+    prepare_tiago_trajectory,
+    run_tiago_benchmark,
     sample_frame_indices,
-)
-from .evaluator import EvaluationRow, evaluate_result
-from .benchmark import (
-    BenchmarkResult,
-    capability_metadata,
-    run_benchmark,
-    summarize_rows,
 )
 
 __all__ = [
-    "BenchmarkResult",
-    "EvaluationRow",
-    "PreparedTrajectory",
-    "TrajectoryFrame",
-    "capability_metadata",
-    "evaluate_result",
-    "prepare_trajectory",
-    "run_benchmark",
+    "TiagoFrame",
+    "TiagoTrajectory",
+    "evaluate_tiago_result",
+    "fixed_body_to_base_transform",
+    "prepare_tiago_trajectory",
+    "run_tiago_benchmark",
     "sample_frame_indices",
-    "summarize_rows",
 ]

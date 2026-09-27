@@ -1,23 +1,4 @@
-# Kinova Gen3 Retargeting Comparison 项目统一配置。
-# 这里仅包含可调的运行、坐标系、机器人安装和可视化参数。
-# 论文闭式算法的数值容差、测试断言容差和 MuJoCo 模型内部关节/连杆参数不属于运行配置，保留在实现或模型中。
-
-robot:
-  # MuJoCo Menagerie Kinova Gen3 场景文件，相对于项目根目录。
-  model_path: assets/kinova_gen3/scene.xml
-  # 固定 humanoid 右臂安装方向；必须对应 mounting.py 中已验证的候选名称。
-  mounting_name: "Rx(+90deg)"
-  # joint_1 在 Gen3 原生 base_link 坐标系中的固定位置，单位 m；仅在更换机器人模型时修改。
-  joint1_in_base_m: [0.0, 0.0, 0.15643]
-  # Gen3 h3 原生轴到上臂指向 proxy 的符号；已由随机几何验证确定。
-  upper_arm_proxy_sign: -1.0
-  # Gen3 h5 原生轴到下臂指向 proxy 的符号；已由随机几何验证确定。
-  lower_arm_proxy_sign: -1.0
-  # 整个 Gen3 root 在 MuJoCo world 中的额外 XYZ 平移，单位 m；默认不偏移。
-  world_offset_m: [0.0, 0.15, 0.2]
-
-# Fixed-base TIAGo Steel calibration. The legacy Gen3 keys above remain only
-# until the new trajectory path has passed its independent validation gates.
+# Sole runtime configuration for fixed-base, single-arm TIAGo Steel.
 tiago:
   model_path: assets/pal_tiago/tiago.xml
   fingerprint_path: assets/pal_tiago/tiago.xml
@@ -60,7 +41,7 @@ tiago:
     user_xyz_offset_base_m: [0.0, 0.0, 0.0]
     t_base_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
   sew:
-    # Locked physical definition. Other entries are only WARP diagnostics.
+    # Locked physical definition. The candidate list is for WARP diagnostics only.
     candidate_order: [J1/J4/wrist_center, J1/J34/wrist_center, J1/J45/wrist_center, J2/J4/wrist_center, J12/J4/wrist_center]
     selected: [J1, J4, wrist_center]
     e_t: [-1.0, 0.0, 0.0]
@@ -70,7 +51,6 @@ tiago:
       validation_window: [640, 699]
       validation_report: output/tiago_j1_validation/report.json
   solver:
-    # Active fast evaluation path; production qualification and full run are pending.
     backend: tiago_semi_analytic
     position_tolerance_m: 0.001
     orientation_tolerance_rad: 0.017453292519943295
@@ -82,123 +62,20 @@ tiago:
     fixed_skeleton_tolerance_m: 0.001
 
 human_csv:
-  # 默认 human trajectory CSV，相对于项目根目录。
   input_path: data/test.csv
-  # CSV position 到米的比例；毫米输入使用 0.001。
   position_scale_to_m: 0.001
-  # CSV world 坐标到 body/MuJoCo world 坐标的 proper rotation。
   rotation_body_from_csv:
     - [0.0, 0.0, 1.0]
     - [1.0, 0.0, 0.0]
     - [0.0, 1.0, 0.0]
-  # Motive wrist rigid-body 局部坐标到 canonical hand frame 的右乘对齐矩阵。
   rotation_input_align:
     - [0.0, 1.0, 0.0]
     - [-1.0, 0.0, 0.0]
     - [0.0, 0.0, 1.0]
-  # Wrist_Rx/Ry/Rz 的 Euler 轴顺序。
   wrist_euler_order: xyz
-  # Wrist_Rx/Ry/Rz 是否以 degree 为单位；false 表示 radians。
   wrist_euler_degrees: true
-  # Wrist_Rx/Ry/Rz 的旋转约定，可选 extrinsic 或 intrinsic。
   wrist_euler_convention: extrinsic
-  # data/test.csv 第一帧 shoulder 的期望 world 坐标，供诊断和测试使用，单位 m。
-  reference_shoulder_world_m: [-0.448858765, -0.064043259, 0.342198364]
 
 task_point:
-  # Canonical human point tracked by true end-effector position metrics.
-  # "wrist" uses Wrist_X/Y/Z directly; no anatomical palm offset is assumed.
   mode: wrist
-  # Fixed wrist-to-task offset in canonical hand-frame XYZ coordinates, metres.
   human_wrist_to_task_offset_m: [0.0, 0.0, 0.0]
-
-# Validated Phase-3 Stereo-SEW reference in the shared native Gen3-base frame.
-# Altering either vector changes the numerical definition (zero/sign) of psi.
-stereo_sew:
-  e_t: [0.0, 0.0, -1.0]
-  e_r: [1.0, 0.0, 0.0]
-
-benchmark:
-  # Print elapsed compute time while compare_retargeters.py processes frames.
-  timing:
-    enabled: true
-    report_every_n_frames: 10
-
-exact_sew:
-  radii_rad: [0.002, 0.004, 0.01, 0.04]
-  local_partitions_min: 8
-  global_partitions: 64
-  maximum_event_evaluations: 50000
-  maximum_wrapped_joint_step_rad: 0.5
-
-replay_csv:
-  # 完整 CSV retarget 后关节角和误差的默认输出文件。
-  output_path: output/test_retargeted_mounted.csv
-  # 完整 CSV 轨迹诊断图的默认输出文件。
-  plot_path: output/test_trajectory_diagnostics.png
-  # CSV replay 和速度计算使用的采样频率，单位 Hz。
-  fps: 100.0
-  # 判定相邻帧关节跳变的阈值，单位 rad/frame。
-  jump_threshold_rad: 0.25
-  # Viewer 最多播放帧数；0 表示播放全部帧。
-  viewer_max_frames: 0
-  # Replay viewer 相机注视点相对第一帧 shoulder 的 XYZ 偏移，单位 m。
-  camera_lookat_offset_m: [0.0, -0.2, 0.0]
-  # Replay viewer 相机距离，单位 m。
-  camera_distance_m: 1.8
-  # Replay viewer 相机水平角，单位 degree。
-  camera_azimuth_deg: 145.0
-  # Replay viewer 相机俯仰角，单位 degree。
-  camera_elevation_deg: -18.0
-
-synthetic_replay:
-  # Synthetic trajectory 总时长，单位 s。
-  duration_s: 10.0
-  # Synthetic trajectory 采样和播放频率，单位 Hz。
-  fps: 50.0
-  # Synthetic trajectory 的关节跳变阈值，单位 rad/frame。
-  jump_threshold_rad: 0.25
-  # Synthetic trajectory 诊断图输出文件。
-  plot_path: output/synthetic_trajectory_diagnostics.png
-
-first_frame_validation:
-  # 显示 q=0 mounting 的时间，单位 s。
-  q0_seconds: 3.0
-  # 显示求解结果的时间，单位 s；0 表示保持到关闭 viewer。
-  solution_seconds: 0.0
-  # 第一帧几何诊断截图输出文件。
-  screenshot_path: output/first_frame_geometric_diagnostic.png
-  # 第一帧 viewer 相机注视点相对 human shoulder 的 XYZ 偏移，单位 m。
-  camera_lookat_offset_m: [0.0, -0.2, 0.0]
-  # 第一帧 viewer 相机距离，单位 m。
-  camera_distance_m: 1.8
-  # 第一帧 viewer 相机水平角，单位 degree。
-  camera_azimuth_deg: 145.0
-  # 第一帧 viewer 相机俯仰角，单位 degree。
-  camera_elevation_deg: -18.0
-
-mounting_validation:
-  # q=0 mounting viewer 显示时间，单位 s；0 表示保持到关闭 viewer。
-  seconds: 0.0
-  # Mounting viewer 相机注视点相对 human shoulder 的 XYZ 偏移，单位 m。
-  camera_lookat_offset_m: [0.0, -0.2, 0.0]
-  # Mounting viewer 相机距离，单位 m。
-  camera_distance_m: 1.7
-  # Mounting viewer 相机水平角，单位 degree。
-  camera_azimuth_deg: 145.0
-  # Mounting viewer 相机俯仰角，单位 degree。
-  camera_elevation_deg: -18.0
-
-self_consistency:
-  # 随机 self-consistency 验证的 pose 数量。
-  samples: 1000
-  # 随机 self-consistency 验证的 NumPy seed。
-  seed: 20260831
-
-wrist_validation:
-  # Phase A 固定的 q1:q4 合法 configuration，用于只测试 wrist q5:q7。
-  fixed_q1_q4: [1.046125445, 1.485342602, -0.788082060, 1.366690019]
-  # AlignWrist 和 tool-axis 随机验证的 pose 数量。
-  samples: 1000
-  # AlignWrist 随机验证的 NumPy seed；tool-axis 使用该值加 1。
-  seed: 20260901

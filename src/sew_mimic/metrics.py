@@ -7,7 +7,7 @@ from typing import TypedDict
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .kinematics import Gen3Kinematics
+from .tiago.model import TiagoKinematics
 
 
 class RetargetDiagnostics(TypedDict):
@@ -41,7 +41,7 @@ def compute_retarget_diagnostics(
     upper_arm_direction: ArrayLike,
     lower_arm_direction: ArrayLike,
     hand_orientation: ArrayLike,
-    robot: Gen3Kinematics,
+    robot: TiagoKinematics,
 ) -> RetargetDiagnostics:
     """Measure the three Algorithm 1 alignment residuals and joint validity."""
     configuration = np.asarray(q, dtype=float)

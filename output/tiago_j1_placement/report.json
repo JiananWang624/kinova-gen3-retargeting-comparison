@@ -1,6 +1,6 @@
 {
   "model_revision": "c96a32d",
-  "calibration_revision": "median-body-4344-torso015-J2-home-v2",
+  "calibration_revision": "median-body-4344-torso015-J1-root-v3",
   "target_frames": 4344,
   "workspace_samples": 20000,
   "sample_seed": 20260929,
@@ -9,35 +9,35 @@
     0.014,
     0.8875
   ],
-  "calibration_reference_joint_name": "arm_2_joint",
+  "calibration_reference_joint_name": "arm_1_joint",
   "selected_sew_shoulder_at_home_base_m": [
-    0.21945241193369783,
-    0.008738796968015413,
-    0.8564999999999999
+    0.09305,
+    0.014,
+    0.8875
   ],
   "selected_sew_shoulder_from_arm_root_m": [
-    0.12640241193369783,
-    -0.005261203031984588,
-    -0.031000000000000028
+    0.0,
+    0.0,
+    0.0
   ],
-  "selected_sew_shoulder_to_arm_root_distance_m": 0.13025455846149875,
+  "selected_sew_shoulder_to_arm_root_distance_m": 0.0,
   "median_human_shoulder_base_m": [
-    0.2194524119336978,
-    0.008738796968015414,
-    0.8565
+    0.09304999999999997,
+    0.014000000000000002,
+    0.8875000000000001
   ],
-  "shoulder_median_to_root_m": 0.13025455846149872,
-  "shoulder_median_to_calibration_reference_m": 2.7809732887839817e-17,
+  "shoulder_median_to_root_m": 1.1445231709044298e-16,
+  "shoulder_median_to_calibration_reference_m": 1.1445231709044298e-16,
   "wrist_bounds_base_m": [
     [
-      0.34269969543369777,
-      -0.06422495003198458,
-      0.49332108350000003
+      0.21629728349999994,
+      -0.058963747,
+      0.5243210835
     ],
     [
-      0.6522691444336978,
-      0.45256262696801547,
-      0.8214666755
+      0.5258667324999999,
+      0.45782383000000004,
+      0.8524666755
     ]
   ],
   "workspace_sample_bounds_base_m": [
@@ -53,9 +53,9 @@
     ]
   ],
   "nearest_workspace_sample_distance_mm_p50_p95_max": [
-    26.77892589423066,
-    42.12993709958961,
-    59.31645233935455
+    28.147471900330117,
+    48.56706648044176,
+    68.83483547473735
   ],
   "position_only_checked_frames": [
     0,
@@ -160,9 +160,9 @@
     4343
   ],
   "position_only_error_mm_p50_p95_max": [
-    1.7059811919549902e-09,
-    1.2810346713808847e-08,
-    0.0010199162658315875
+    2.1710126986134455e-09,
+    1.0092394695321432e-08,
+    0.0023398309161801
   ],
   "position_only_within_1mm": 100,
   "interpretation": "Position-only feasibility does not establish orientation or SEW feasibility."

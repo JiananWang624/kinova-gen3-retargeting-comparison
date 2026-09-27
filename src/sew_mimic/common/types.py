@@ -10,7 +10,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .status import SolverStatus
-from ..angles import wrap_to_pi
 
 
 Vector = NDArray[np.float64]
@@ -81,20 +80,6 @@ class HumanArmTarget:
         self.wrist = _vector3(self.wrist, "wrist")
         self.hand_rotation = _rotation3(self.hand_rotation, "hand_rotation")
         self.task_point = _vector3(self.task_point, "task_point")
-
-
-@dataclass
-class ExactSewTarget:
-    """A fixed-base Gen3 pinch pose and Stereo-SEW task-space target."""
-
-    position: Vector
-    rotation: Matrix
-    psi: float
-
-    def __post_init__(self) -> None:
-        self.position = _vector3(self.position, "position")
-        self.rotation = _rotation3(self.rotation, "rotation")
-        self.psi = wrap_to_pi(self.psi)
 
 
 @dataclass

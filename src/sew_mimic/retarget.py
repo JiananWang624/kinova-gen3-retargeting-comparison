@@ -7,8 +7,8 @@ from numpy.typing import ArrayLike, NDArray
 
 from .geometry import sp1, sp2
 from .human_input import compute_lower_arm_direction, compute_upper_arm_direction
-from .kinematics import Gen3Kinematics, gen3_kinematics
 from .metrics import RetargetDiagnostics, compute_retarget_diagnostics
+from .tiago.model import TiagoKinematics
 
 
 Vector = NDArray[np.float64]
@@ -67,7 +67,7 @@ def _bound_angle(angle: float, current: float, limits: NDArray[np.float64]) -> f
     return float(candidates[np.argmin(np.abs(candidates - current))])
 
 
-def align_axis(i: int, q0: ArrayLike, v: ArrayLike, robot: Gen3Kinematics) -> Vector:
+def align_axis(i: int, q0: ArrayLike, v: ArrayLike, robot: TiagoKinematics) -> Vector:
     """Implement Algorithm 2 ``AlignAxis`` using 1-based joint index ``i``.
 
     The returned pair contains the absolute angles ``(q[i-2], q[i-1])`` in
@@ -87,7 +87,7 @@ def align_axis(i: int, q0: ArrayLike, v: ArrayLike, robot: Gen3Kinematics) -> Ve
     target_in_frame = rotation_0_to_frame.T @ target
 
     # Algorithm 2, line 2: express the axis to align in frame (i-2). For the
-    # Gen3 upper/lower limbs this is a signed pointing proxy; axes[] remains
+    # Upper/lower limbs use signed pointing proxies; axes[] remains
     # the native kinematic rotation-axis convention. Wrist i=7 stays native.
     axis_to_align_local = (
         robot.arm_proxy_axis(joint_index)
@@ -139,9 +139,9 @@ def align_axis(i: int, q0: ArrayLike, v: ArrayLike, robot: Gen3Kinematics) -> Ve
 def align_wrist(
     q0: ArrayLike,
     H: ArrayLike,
-    robot: Gen3Kinematics,
+    robot: TiagoKinematics,
 ) -> Vector:
-    """Implement Algorithm 3 for the Kinova Gen3 parallel wrist.
+    """Implement Algorithm 3 for the configured parallel wrist.
 
     ``H`` uses the paper's right-handed hand convention. The returned vector
     contains the absolute joint angles ``(q5, q6, q7)``.
@@ -189,11 +189,9 @@ def sew_mimic(
     elbow: ArrayLike,
     wrist: ArrayLike,
     H: ArrayLike,
-    robot: Gen3Kinematics | None = None,
+    robot: TiagoKinematics,
 ) -> tuple[Vector, RetargetDiagnostics]:
     """Implement Algorithm 1 on the explicitly supplied seven-joint arm."""
-    robot = robot if robot is not None else gen3_kinematics()
-
     # Algorithm 1, line 1: initialize the output configuration from q0.
     q = _configuration(q0, robot.dof).copy()
 

@@ -35,9 +35,6 @@ R_BODY_FROM_CSV = np.asarray(
     _HUMAN_CSV_CONFIG["rotation_body_from_csv"], dtype=float
 )
 R_INPUT_ALIGN = np.asarray(_HUMAN_CSV_CONFIG["rotation_input_align"], dtype=float)
-SHOULDER_ANCHOR_WORLD = np.asarray(
-    _HUMAN_CSV_CONFIG["reference_shoulder_world_m"], dtype=float
-)
 WRIST_EULER_ORDER = str(_HUMAN_CSV_CONFIG["wrist_euler_order"])
 WRIST_EULER_DEGREES = bool(_HUMAN_CSV_CONFIG["wrist_euler_degrees"])
 WRIST_EULER_CONVENTION = str(_HUMAN_CSV_CONFIG["wrist_euler_convention"])
