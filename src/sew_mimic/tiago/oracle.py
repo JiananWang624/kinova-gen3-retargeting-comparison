@@ -29,8 +29,28 @@ class TiagoNumericalOracle:
 
     def __init__(self):
         settings = CONFIG["tiago"]
+        if settings["task_frames"] != {"position": "wrist_center", "orientation": settings["tcp_site"]}:
+            raise ValueError("TIAGo oracle requires wrist-center position and configured grasping-frame orientation")
         self.model = mujoco.MjModel.from_xml_path(str(project_path(settings["model_path"])))
         self.data = mujoco.MjData(self.model)
+        base_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, settings["base_frame"])
+        torso_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "torso_lift_joint")
+        if (base_id < 0 or self.model.body_parentid[base_id] != 0 or torso_id < 0 or
+            self.model.jnt_type[torso_id] != mujoco.mjtJoint.mjJNT_SLIDE):
+            raise ValueError("TIAGo oracle requires a fixed world-child base and sliding torso")
+        placement = settings["placement"]
+        reference_torso = float(placement["reference_torso_lift_m"])
+        offset = np.asarray(placement["j1_offset_world_m"], dtype=float)
+        torso_range = self.model.jnt_range[torso_id]
+        if not np.allclose(torso_range, [0.0, 0.35], atol=1e-12, rtol=0):
+            raise ValueError("TIAGo oracle torso range differs from validated [0, 0.35] m")
+        if (offset.shape != (3,) or not np.all(np.isfinite(offset)) or
+            not np.isfinite(reference_torso) or
+            not torso_range[0] <= reference_torso <= torso_range[1]):
+            raise ValueError("invalid TIAGo oracle placement or reference torso lift")
+        torso = float(np.clip(reference_torso + offset[2], *torso_range))
+        self.model.body_pos[base_id] += offset - np.array([0.0, 0.0, torso - reference_torso])
+        self.fixed_torso = (self.model.jnt_qposadr[torso_id], torso)
         self.arm_ids = np.array([mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
                                  for name in settings["joint_names"]])
         self.qpos_ids = self.model.jnt_qposadr[self.arm_ids]
@@ -45,17 +65,16 @@ class TiagoNumericalOracle:
         self.tolerances = settings["solver"]
         self._forward(self.home)
         anchors = self.data.xanchor[self.arm_ids]
-        tcp = self.data.site_xpos[self.tcp_id]
         self.shoulder = anchors[0].copy()
-        self.max_radius = float(np.sum(np.linalg.norm(np.diff(anchors, axis=0), axis=1))
-                                + np.linalg.norm(tcp - anchors[-1]))
+        self.max_radius = float(np.sum(np.linalg.norm(np.diff(anchors[:6], axis=0), axis=1)))
 
     def _forward(self, q: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
         self.data.qpos[self.qpos_ids] = q
+        self.data.qpos[self.fixed_torso[0]] = self.fixed_torso[1]
         for index, value in self.fixed:
             self.data.qpos[index] = value
         mujoco.mj_forward(self.model, self.data)
-        position = self.data.site_xpos[self.tcp_id].copy()
+        position = self.data.xanchor[self.arm_ids[5]].copy()
         rotation = self.data.site_xmat[self.tcp_id].reshape(3, 3).copy()
         anchors = self.data.xanchor[self.arm_ids]
         axes = self.data.xaxis[self.arm_ids]
@@ -110,7 +129,7 @@ class TiagoNumericalOracle:
     def solve(self, target: TiagoSewTarget, *, seeds: int = 32, seed: int = 20260929) -> OracleResult:
         if np.linalg.norm(target.position - self.shoulder) > self.max_radius + 1e-10:
             return OracleResult("workspace_unreachable", None, float("inf"),
-                                "TCP target exceeds triangle-inequality arm reach bound")
+                                "wrist-center target exceeds triangle-inequality arm reach bound")
         found, best = self._search(target, self.limits[:, 0], self.limits[:, 1], seeds=seeds, seed=seed)
         if found is not None:
             return OracleResult("reachable", found, best, "strict MuJoCo pose and SEW solution found")

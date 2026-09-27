@@ -22,19 +22,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from sew_mimic.config import CONFIG  # noqa: E402
 from sew_mimic.pipeline.tiago import prepare_tiago_trajectory  # noqa: E402
+from sew_mimic.tiago.wrist import wrist_center  # noqa: E402
 
 
 def _position_fit(robot, target: np.ndarray, seed: np.ndarray) -> tuple[np.ndarray, float]:
     lower, upper = robot.joint_limits.T
 
     def residual(q: np.ndarray) -> np.ndarray:
-        return robot.tcp_pose(q)[0] - target
-
-    def jacobian(q: np.ndarray) -> np.ndarray:
-        return robot.site_jacobian(q)[0]
+        return wrist_center(robot, q) - target
 
     result = least_squares(residual, np.clip(seed, lower + 1e-9, upper - 1e-9),
-                           jac=jacobian, bounds=(lower, upper), max_nfev=100,
+                           bounds=(lower, upper), max_nfev=100,
                            ftol=1e-12, xtol=1e-12, gtol=1e-12)
     return result.x, float(np.linalg.norm(result.fun))
 
@@ -48,7 +46,7 @@ def _plot(path: Path, shoulders: np.ndarray, wrists: np.ndarray,
 
     figure = plt.figure(figsize=(12, 5.5), constrained_layout=True)
     ax = figure.add_subplot(121, projection="3d")
-    ax.scatter(*workspace.T, s=0.35, alpha=0.055, c="steelblue", label="MuJoCo TCP samples")
+    ax.scatter(*workspace.T, s=0.35, alpha=0.055, c="steelblue", label="MuJoCo wrist-center samples")
     ax.scatter(*wrists.T, s=1, alpha=0.24, c="darkorange", label="all human wrist targets")
     ax.scatter(*root, s=80, c="black", marker="x", label="TIAGo arm root")
     ax.scatter(*selected_shoulder, s=65, c="purple", marker="D",
@@ -123,16 +121,17 @@ def main() -> None:
     root = robot.axes_and_anchors(np.asarray(CONFIG["tiago"]["home_q_rad"]))[1][0]
     shoulder = np.asarray(calibration["shoulder_reference_base_m"])
     selected_shoulder = robot.sew_points(np.asarray(CONFIG["tiago"]["home_q_rad"])).shoulder
-    if not np.allclose(selected_shoulder, shoulder, atol=1e-10, rtol=0):
-        raise ValueError(f"selected shoulder {selected_shoulder} differs from calibration {shoulder}")
+    robot_offset = np.asarray(CONFIG["tiago"]["placement"]["j1_offset_world_m"])
+    if not np.allclose(selected_shoulder, shoulder + robot_offset, atol=1e-10, rtol=0):
+        raise ValueError(f"selected shoulder {selected_shoulder} differs from nominal calibration plus robot offset {shoulder + robot_offset}")
     median_shoulder = np.median(shoulders, axis=0)
     if not np.allclose(median_shoulder, shoulder, atol=1e-6, rtol=0):
-        raise ValueError(f"transformed median shoulder {median_shoulder} differs from selected shoulder {shoulder}")
+        raise ValueError(f"transformed median shoulder {median_shoulder} differs from fixed human calibration {shoulder}")
 
     rng = np.random.default_rng(args.seed)
     lower, upper = robot.joint_limits.T
     configurations = rng.uniform(lower, upper, size=(args.workspace_samples, 7))
-    workspace = np.array([robot.tcp_pose(q)[0] for q in configurations])
+    workspace = np.array([wrist_center(robot, q) for q in configurations])
     tree = cKDTree(workspace)
     nearest, _ = tree.query(wrists)
     check_indices = np.linspace(0, len(wrists) - 1,
@@ -150,6 +149,7 @@ def main() -> None:
     report = {
         "model_revision": CONFIG["tiago"]["menagerie_revision"],
         "calibration_revision": CONFIG["tiago"]["calibration"]["revision"],
+        "task_frames": CONFIG["tiago"]["task_frames"],
         "target_frames": len(wrists), "workspace_samples": args.workspace_samples,
         "sample_seed": args.seed,
         "arm_root_base_m": root.tolist(),

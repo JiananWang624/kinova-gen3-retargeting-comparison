@@ -27,18 +27,20 @@ def calibration_report(csv_path: str | Path) -> dict[str, object]:
         raise ValueError("TIAGo calibration must use a named arm joint at home_q_rad")
     shoulder_base = robot.axes_and_anchors(q)[1][robot.joint_names.index(reference_joint)]
     rotation = np.asarray(transform["R_base_from_body"], dtype=float)
-    offset = np.asarray(transform["user_xyz_offset_base_m"], dtype=float)
-    translation = shoulder_base - rotation @ shoulder_body + offset
-    measured = np.asarray(transform["t_base_from_body_m"], dtype=float)
+    robot_offset = np.asarray(settings["placement"]["j1_offset_world_m"], dtype=float)
+    shoulder_reference = shoulder_base - robot_offset
+    calibrated = np.asarray(transform["t_calibrated_m"], dtype=float)
     selected = settings["sew"]["selected"]
     if (reference_joint != "arm_1_joint" or
         selected != ["J1", "J4", "wrist_center"]):
         raise ValueError("TIAGo calibration requires locked J1 / J4 / wrist_center geometry")
     return {"frames": len(human), "reference_joint_name": reference_joint,
             "shoulder_reference_body_m": shoulder_body.tolist(),
-            "shoulder_reference_base_m": shoulder_base.tolist(),
-            "t_base_from_body_m": translation.tolist(),
-            "translation_drift_m": float(np.linalg.norm(translation - measured)),
+            "shoulder_reference_base_m": shoulder_reference.tolist(),
+            "robot_j1_placed_world_m": shoulder_base.tolist(),
+            "t_base_from_body_m": calibrated.tolist(),
+            "translation_drift_m": float(np.linalg.norm(
+                calibrated - (shoulder_reference - rotation @ shoulder_body))),
             "model_sha256": hashlib.sha256(project_path(settings["fingerprint_path"]).read_bytes()).hexdigest(),
             "model_fingerprint_matches_config": settings["model_sha256"] == hashlib.sha256(project_path(settings["fingerprint_path"]).read_bytes()).hexdigest(),
             "sew_definition": selected}
@@ -67,7 +69,7 @@ def main() -> None:
         body = np.asarray(report["shoulder_reference_body_m"])
         calibrated = base - rotation @ body
         calibration["t_calibrated_m"] = calibrated.tolist()
-        calibration["t_base_from_body_m"] = (calibrated + np.asarray(calibration["user_xyz_offset_base_m"])).tolist()
+        calibration.pop("t_base_from_body_m", None)
         Path(project_path("config.yaml")).write_text(yaml.safe_dump(configuration, sort_keys=False), encoding="utf-8")
 
 

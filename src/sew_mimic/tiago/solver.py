@@ -34,6 +34,9 @@ class SolverBackend(Protocol):
 class TiagoSewGeometry:
     def __init__(self, robot: TiagoKinematics):
         self.robot = robot
+        frames = CONFIG["tiago"]["task_frames"]
+        if frames != {"position": "wrist_center", "orientation": CONFIG["tiago"]["tcp_site"]}:
+            raise ValueError("TIAGo task frames must be spherical wrist_center position and configured grasping-frame orientation")
         settings = CONFIG["tiago"]["sew"]
         self.selection = tuple(settings["selected"])
         self.stereo = StereoSew(StereoSewReference(np.array(settings["e_t"]), np.array(settings["e_r"])))
@@ -71,7 +74,8 @@ class _TiagoSolverBase:
         return seeds
 
     def _valid_result(self, q: np.ndarray, target: TiagoSewTarget, started: float, branch: str) -> SolverResult | None:
-        position, rotation = self.robot.tcp_pose(q)
+        position = wrist_center(self.robot, q)
+        rotation = self.robot.tcp_pose(q)[1]
         position_error = float(np.linalg.norm(position - target.position))
         rotation_error = float(Rotation.from_matrix(rotation.T @ target.rotation).magnitude())
         try:
@@ -110,13 +114,8 @@ class TiagoSewSolver(_TiagoSolverBase):
         gate = validate_spherical_wrist(robot, samples=1000)
         if not gate.passed:
             raise ValueError(f"TIAGo semi-analytic wrist hard gate failed: {gate.reason}; {gate}")
-        q = self.home
-        position, rotation = robot.tcp_pose(q)
-        self.offset_in_tool = rotation.T @ (position - wrist_center(robot, q))
-
     def solve(self, target: TiagoSewTarget) -> SolverResult:
         started = time.perf_counter()
-        target_center = target.position - target.rotation @ self.offset_in_tool
         lower, upper = self.robot.joint_limits[:4].T
         wrist_lower, wrist_upper = self.robot.joint_limits[4:].T
         previous = self.previous_q
@@ -130,10 +129,11 @@ class TiagoSewSolver(_TiagoSolverBase):
                 psi_error = angular_difference(psi, target.psi)
             except StereoSewSingularityError:
                 psi_error = math.pi
-            return np.r_[points.wrist - target_center, 0.2 * psi_error]
+            return np.r_[points.wrist - target.position, 0.2 * psi_error]
 
         def pose_residual(q: np.ndarray) -> np.ndarray:
-            position, rotation = self.robot.tcp_pose(q)
+            position = wrist_center(self.robot, q)
+            rotation = self.robot.tcp_pose(q)[1]
             orientation_error = Rotation.from_matrix(rotation.T @ target.rotation).as_rotvec()
             try:
                 psi_error = angular_difference(self.geometry.psi(q), target.psi)
@@ -150,7 +150,8 @@ class TiagoSewSolver(_TiagoSolverBase):
             if float(np.linalg.norm(fit.fun)) > 0.005:
                 continue
             analytic_branches = decompose_wrist(self.robot, fit.x, target.rotation,
-                                                 enforce_limits=False)
+                                                 enforce_limits=False,
+                                                 preferred_wrist_q=None if previous is None else previous[4:])
             branches = [(index, branch) for index, branch in enumerate(analytic_branches)
                         if np.all(branch >= wrist_lower - 1e-12)
                         and np.all(branch <= wrist_upper + 1e-12)]
@@ -179,7 +180,7 @@ class TiagoSewSolver(_TiagoSolverBase):
             if result is not None:
                 result.diagnostics.metadata["solver_stage"] = "analytic_wrist_boundary_refinement"
                 return result
-        return self._failure(started, "no exact or boundary-refined wrist branch met strict TCP/SEW tolerances")
+        return self._failure(started, "no exact or boundary-refined wrist branch met strict wrist-center/orientation/SEW tolerances")
 
 
 class TiagoNumericalSolver(_TiagoSolverBase):
@@ -191,7 +192,8 @@ class TiagoNumericalSolver(_TiagoSolverBase):
         previous = self.previous_q
 
         def residual(q: np.ndarray) -> np.ndarray:
-            position, rotation = self.robot.tcp_pose(q)
+            position = wrist_center(self.robot, q)
+            rotation = self.robot.tcp_pose(q)[1]
             angle = Rotation.from_matrix(rotation.T @ target.rotation).as_rotvec()
             try:
                 psi_error = angular_difference(self.geometry.psi(q), target.psi)
@@ -207,7 +209,7 @@ class TiagoNumericalSolver(_TiagoSolverBase):
             result = self._valid_result(fit.x, target, started, f"seed-{number}")
             if result is not None:
                 return result
-        return self._failure(started, "seven-variable TIAGo search did not meet strict TCP/SEW tolerances")
+        return self._failure(started, "seven-variable TIAGo search did not meet strict wrist-center/orientation/SEW tolerances")
 
 
 def solve_tiago_sew(target: TiagoSewTarget, robot: TiagoKinematics | None = None,

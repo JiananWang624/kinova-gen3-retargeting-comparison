@@ -19,6 +19,7 @@ from sew_mimic.config import CONFIG  # noqa: E402
 from sew_mimic.pipeline.tiago import (evaluate_tiago_result,  # noqa: E402
                                       prepare_tiago_trajectory)
 from sew_mimic.tiago import TiagoKinematics  # noqa: E402
+from sew_mimic.tiago.wrist import wrist_center  # noqa: E402
 
 CONFIG_HOME = CONFIG["tiago"]["home_q_rad"]
 
@@ -30,6 +31,24 @@ def _sphere(scene: mujoco.MjvScene, position: np.ndarray, color: tuple[float, ..
     mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_SPHERE,
                        np.full(3, radius), position, np.eye(3).ravel(), color)
     scene.ngeom += 1
+
+
+def _world_frame(scene: mujoco.MjvScene, length: float = 0.4) -> None:
+    origin = np.zeros(3)
+    for axis, color in ((0, (1, 0, 0, 1)),
+                        (1, (0, 1, 0, 1)),
+                        (2, (0, 0.35, 1, 1))):
+        if scene.ngeom >= scene.maxgeom:
+            return
+        endpoint = origin.copy()
+        endpoint[axis] = length
+        geom = scene.geoms[scene.ngeom]
+        mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_ARROW, np.zeros(3),
+                           origin, np.eye(3).ravel(), color)
+        mujoco.mjv_connector(geom, mujoco.mjtGeom.mjGEOM_ARROW, 0.012,
+                            origin, endpoint)
+        geom.rgba[:] = color
+        scene.ngeom += 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     table = table.loc[table["method"] == args.method].head(args.max_frames)
     if table.empty:
         parser.error(f"results CSV has no {args.method} rows")
-    expected = {"frame", "status", *(f"arm_{i}_joint" for i in range(1, 8))}
+    expected = {"frame", "status", "calibration_revision", "position_target_frame", "orientation_target_frame",
+                "wrist_center_position_error_mm", "ee_orientation_error_deg",
+                "sew_angle_error_deg", *(f"grasping_frame_position_{axis}_m" for axis in "xyz"),
+                *(f"arm_{i}_joint" for i in range(1, 8))}
     if not expected <= set(table.columns):
         parser.error(f"results CSV lacks columns {sorted(expected - set(table.columns))}")
     trajectory = prepare_tiago_trajectory(args.input)
@@ -58,6 +80,16 @@ def main(argv: list[str] | None = None) -> int:
         frame_id = int(row["frame"])
         if frame_id not in frames:
             parser.error(f"result frame {frame_id} is outside the input CSV")
+        revision = CONFIG["tiago"]["calibration"]["revision"]
+        if row["calibration_revision"] != revision:
+            parser.error(f"result frame {frame_id} uses calibration {row['calibration_revision']!r}; "
+                         f"current configuration requires {revision!r}")
+        task_frames = CONFIG["tiago"]["task_frames"]
+        for name, key in (("position_target_frame", "position"),
+                          ("orientation_target_frame", "orientation")):
+            if row[name] != task_frames[key]:
+                parser.error(f"result frame {frame_id} has {name}={row[name]!r}; "
+                             f"current configuration requires {task_frames[key]!r}")
         status = SolverStatus(row["status"])
         values = np.array([row[name] for name in trajectory.robot.joint_names], dtype=float)
         success = status in (SolverStatus.SUCCESS_EXACT, SolverStatus.SUCCESS_APPROX)
@@ -67,7 +99,9 @@ def main(argv: list[str] | None = None) -> int:
         checked = evaluate_tiago_result(frames[frame_id], result, trajectory.robot,
                                         trajectory.geometry, method=args.method)
         if success:
-            for field in ("ee_position_error_mm", "ee_orientation_error_deg", "sew_angle_error_deg"):
+            for field in ("wrist_center_position_error_mm", "ee_orientation_error_deg",
+                          "sew_angle_error_deg",
+                          *(f"grasping_frame_position_{axis}_m" for axis in "xyz")):
                 if not np.isclose(checked[field], float(row[field]), atol=1e-6, rtol=0):
                     parser.error(f"frame {frame_id} stored {field} disagrees with MuJoCo FK")
         loaded.append((frames[frame_id], values if success else None, checked))
@@ -77,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     import mujoco.viewer
 
     visual = TiagoKinematics(ROOT / "assets" / "pal_tiago" / "scene_position.xml")
+    print("MuJoCo world frame: origin=(0, 0, 0), +X=red, +Y=green, +Z=blue")
     with mujoco.viewer.launch_passive(visual.model, visual.data) as viewer:
         viewer.cam.lookat[:] = [0.1, -0.2, 0.9]
         viewer.cam.distance = 2.5
@@ -87,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
                 break
             visual.set_q(np.array(CONFIG_HOME if q is None else q))
             viewer.user_scn.ngeom = 0
+            _world_frame(viewer.user_scn)
             target = frame.target
             for point, color in ((target.shoulder, (0.9, 0.2, 0.2, 1)),
                                  (target.elbow, (0.9, 0.8, 0.2, 1)),
@@ -94,7 +130,8 @@ def main(argv: list[str] | None = None) -> int:
                                  (target.task_point, (0.2, 0.5, 1.0, 1))):
                 _sphere(viewer.user_scn, point, color, 0.014)
             if q is not None:
-                _sphere(viewer.user_scn, visual.data.site_xpos[visual.tcp_id], (1, 0, 1, 1), 0.012)
+                _sphere(viewer.user_scn, wrist_center(visual, q), (1, 0, 1, 1), 0.012)
+                _sphere(viewer.user_scn, visual.data.site_xpos[visual.tcp_id], (0, 1, 1, 1), 0.009)
                 points = trajectory.geometry.robot.sew_points(q)
                 for point in (points.shoulder, points.elbow, points.wrist):
                     _sphere(viewer.user_scn, point, (1, 0.5, 0, 1), 0.009)

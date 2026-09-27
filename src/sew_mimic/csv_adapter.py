@@ -117,9 +117,9 @@ class HumanCSVAdapter:
             self.position_to_world(point) for point in (shoulder, elbow, wrist)
         )
 
-        # R_wrist_csv maps Motive device axes into CSV world axes. The left
-        # product changes world basis; the right product changes the local
-        # device basis into canonical hand X(pointing), Y(palm), Z(thumb).
+        # Wrist_Rx/Ry/Rz describe the Fork rigid body fixed to the hand.
+        # The locked right product maps Fork -Y to canonical hand +X;
+        # the left product changes the CSV world basis.
         hand_orientation_world = (
             self.rotation_body_from_csv
             @ hand_orientation_csv

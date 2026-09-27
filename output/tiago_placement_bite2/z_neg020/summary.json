@@ -1,0 +1,54 @@
+{
+  "input": "F:\\code\\sew_mimic_repro\\data\\test.csv",
+  "bite_id": 2,
+  "frame_start": 246,
+  "frame_end": 546,
+  "robot_offset_world_m": [
+    0.0,
+    0.0,
+    -0.2
+  ],
+  "model_sha256": "dc5005d1b64b87b9ddf0eba717d94b7801b91ac1d242629e3a0373a4a8bdaafb",
+  "calibration_revision": "median-body-4344-torso015-J1-root-robot-zminus020-v5",
+  "solver_settings": {
+    "backend": "tiago_semi_analytic",
+    "position_tolerance_m": 0.001,
+    "orientation_tolerance_rad": 0.017453292519943295,
+    "sew_tolerance_rad": 0.017453292519943295,
+    "local_max_nfev": 80,
+    "global_max_nfev": 300,
+    "recovery_seeds": 16
+  },
+  "wrist_height_cut_m": [
+    0.7161315155,
+    0.7989514775
+  ],
+  "strict_success": 118,
+  "total": 301,
+  "solver_failure_count": 183,
+  "phase": {
+    "low": {
+      "success": 0,
+      "total": 101,
+      "success_rate": 0.0
+    },
+    "middle": {
+      "success": 78,
+      "total": 100,
+      "success_rate": 0.78
+    },
+    "high": {
+      "success": 40,
+      "total": 100,
+      "success_rate": 0.4
+    }
+  },
+  "overall_min_margin_deg": 2.5444437451708134e-14,
+  "j5_min_margin_deg": 90.96059987724026,
+  "j7_min_margin_deg": 2.5444437451708134e-14,
+  "overall_median_margin_deg": 4.2521221910672775,
+  "j5_median_margin_deg": 99.00986553490372,
+  "j7_median_margin_deg": 6.258040016709137,
+  "p50_solve_time_ms": 241.021899972111,
+  "p95_solve_time_ms": 432.8726000385359
+}

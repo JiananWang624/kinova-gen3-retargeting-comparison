@@ -18,6 +18,7 @@ from sew_mimic.config import CONFIG  # noqa: E402
 from sew_mimic.pipeline.tiago import prepare_tiago_trajectory  # noqa: E402
 from sew_mimic.tiago.oracle import TiagoNumericalOracle  # noqa: E402
 from sew_mimic.tiago.solver import TiagoSewSolver  # noqa: E402
+from sew_mimic.tiago.wrist import wrist_center  # noqa: E402
 
 
 def _quantiles(values: list[float]) -> dict[str, float] | None:
@@ -40,9 +41,8 @@ def _sew_margin(points) -> float:
 
 def _position_error(robot, target: np.ndarray, seed: np.ndarray) -> float:
     lower, upper = robot.joint_limits.T
-    fit = least_squares(lambda q: robot.tcp_pose(q)[0] - target,
+    fit = least_squares(lambda q: wrist_center(robot, q) - target,
                         np.clip(seed, lower + 1e-9, upper - 1e-9),
-                        jac=lambda q: robot.site_jacobian(q)[0],
                         bounds=(lower, upper), max_nfev=100,
                         ftol=1e-12, xtol=1e-12, gtol=1e-12)
     return float(np.linalg.norm(fit.fun))
@@ -69,12 +69,13 @@ def main() -> None:
     if (calibration["reference_joint_name"] != "arm_1_joint" or
         tuple(CONFIG["tiago"]["sew"]["selected"]) != ("J1", "J4", "wrist_center") or
         CONFIG["tiago"]["solver"]["backend"] != "tiago_semi_analytic"):
-        raise ValueError("J1 validation requires fixed J1 alignment, S=J1, and semi-analytic backend")
+        raise ValueError("J1 validation requires fixed J1 calibration with configured offset, S=J1, and semi-analytic backend")
     root = robot.axes_and_anchors(np.asarray(CONFIG["tiago"]["home_q_rad"]))[1][0]
     shoulder = np.median([frame.target.shoulder for frame in trajectory.frames], axis=0)
-    alignment_error = float(np.linalg.norm(root - shoulder))
+    offset = np.asarray(CONFIG["tiago"]["placement"]["j1_offset_world_m"], dtype=float)
+    alignment_error = float(np.linalg.norm(root - offset - shoulder))
     if alignment_error > 1e-6:
-        raise ValueError(f"robust shoulder is not aligned to fixed J1 root: {alignment_error} m")
+        raise ValueError(f"robust shoulder differs from nominal J1 root: {alignment_error} m")
 
     indices = list(range(args.start, args.start + args.frames))
     extras = sorted(set(args.extra_frames) - set(indices))
@@ -83,7 +84,7 @@ def main() -> None:
     rng = np.random.default_rng(20260929)
     lower, upper = robot.joint_limits.T
     samples = rng.uniform(lower, upper, size=(10000, 7))
-    workspace = np.array([robot.tcp_pose(q)[0] for q in samples])
+    workspace = np.array([wrist_center(robot, q) for q in samples])
     tree = cKDTree(workspace)
     rows = []
     for ordinal, index in enumerate(indices + extras, 1):
@@ -141,10 +142,12 @@ def main() -> None:
         "model_revision": CONFIG["tiago"]["menagerie_revision"],
         "calibration_revision": calibration["revision"],
         "sew_definition": CONFIG["tiago"]["sew"]["selected"],
+        "task_frames": CONFIG["tiago"]["task_frames"],
         "window_start": args.start, "window_frames": args.frames,
         "extra_frames": extras, "oracle_seeds_per_frame": args.oracle_seeds,
         "semi_recovery_seeds": CONFIG["tiago"]["solver"]["recovery_seeds"],
-        "robust_shoulder_to_j1_m": alignment_error,
+        "robust_shoulder_to_j1_m": float(np.linalg.norm(root - shoulder)),
+        "fixed_offset_consistency_error_m": alignment_error,
         "position_only_within_1mm": sum(row["position_only_error_mm"] < 1 for row in continuous),
         "position_only_error_mm": _quantiles([row["position_only_error_mm"] for row in continuous]),
         "oracle_strict_reachable": sum(row["oracle_classification_raw"] == "reachable" for row in continuous),

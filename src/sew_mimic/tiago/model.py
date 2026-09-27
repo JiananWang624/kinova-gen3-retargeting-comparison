@@ -15,13 +15,11 @@ from ..config import CONFIG, project_path
 
 ARM_JOINT_NAMES = tuple(f"arm_{i}_joint" for i in range(1, 8))
 FIXED_JOINTS = {
-    "torso_lift_joint": 0.15,
     "head_1_joint": 0.0,
     "head_2_joint": 0.0,
     "gripper_left_finger_joint": 0.03,
     "gripper_right_finger_joint": 0.03,
 }
-TCP_SITE = "gripper_grasping_frame"
 
 
 @dataclass(frozen=True)
@@ -43,6 +41,25 @@ class TiagoKinematics:
         self.data = mujoco.MjData(self.model)
         if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "reference") >= 0:
             raise ValueError("TIAGo base must be fixed; free joint 'reference' exists")
+        self.base_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, settings["base_frame"])
+        if self.base_id < 0 or self.model.body_parentid[self.base_id] != 0:
+            raise ValueError("TIAGo base body must exist directly under world")
+        self.torso_joint_id = self._joint_id("torso_lift_joint")
+        if self.model.jnt_type[self.torso_joint_id] != mujoco.mjtJoint.mjJNT_SLIDE:
+            raise ValueError("TIAGo torso lift must be a slide joint")
+        placement = settings["placement"]
+        reference_torso = float(placement["reference_torso_lift_m"])
+        offset = np.asarray(placement["j1_offset_world_m"], dtype=float)
+        torso_range = self.model.jnt_range[self.torso_joint_id]
+        if not np.allclose(torso_range, [0.0, 0.35], atol=1e-12, rtol=0):
+            raise ValueError("TIAGo torso range differs from validated [0, 0.35] m")
+        if (offset.shape != (3,) or not np.all(np.isfinite(offset)) or
+            not np.isfinite(reference_torso) or
+            not torso_range[0] <= reference_torso <= torso_range[1]):
+            raise ValueError("invalid TIAGo J1 placement or reference torso lift")
+        self.torso_lift_m = float(np.clip(reference_torso + offset[2], *torso_range))
+        self.base_translation_world_m = offset - np.array([0.0, 0.0, self.torso_lift_m - reference_torso])
+        self.model.body_pos[self.base_id] += self.base_translation_world_m
         self.joint_names = ARM_JOINT_NAMES
         self.joint_ids = np.array([self._joint_id(name) for name in ARM_JOINT_NAMES])
         if not np.all(self.model.jnt_type[self.joint_ids] == mujoco.mjtJoint.mjJNT_HINGE):
@@ -59,9 +76,9 @@ class TiagoKinematics:
         self.fixed_joint_ids = {name: self._joint_id(name) for name in FIXED_JOINTS}
         self.non_arm_joint_ids = np.array([i for i in range(self.model.njnt)
                                            if i not in set(self.joint_ids)], dtype=int)
-        self.tcp_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, TCP_SITE)
+        self.tcp_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, settings["tcp_site"])
         if self.tcp_id < 0:
-            raise ValueError(f"TIAGo model has no {TCP_SITE} site")
+            raise ValueError(f"TIAGo model has no {settings['tcp_site']} site")
         if self.model.site_bodyid[self.tcp_id] != self.model.jnt_bodyid[self.joint_ids[-1]]:
             raise ValueError("grasping frame must be attached to arm_7_link")
         self.ee_rotation_in_7 = Rotation.from_quat(self.model.site_quat[self.tcp_id], scalar_first=True).as_matrix()
@@ -78,6 +95,10 @@ class TiagoKinematics:
             configured_fixed = settings["fixed_joints"]
             if configured_fixed != FIXED_JOINTS:
                 raise ValueError("TIAGo fixed joint positions differ from validated constants")
+            for name, joint_id in self.fixed_joint_ids.items():
+                low, high = self.model.jnt_range[joint_id]
+                if self.model.jnt_limited[joint_id] and not low <= FIXED_JOINTS[name] <= high:
+                    raise ValueError(f"fixed TIAGo joint {name} violates MJCF limits")
 
     def _joint_id(self, name: str) -> int:
         value = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
@@ -87,6 +108,7 @@ class TiagoKinematics:
 
     def reset_fixed(self) -> None:
         self.data.qpos[self.model.jnt_qposadr[self.non_arm_joint_ids]] = 0.0
+        self.data.qpos[self.model.jnt_qposadr[self.torso_joint_id]] = self.torso_lift_m
         for name, value in FIXED_JOINTS.items():
             self.data.qpos[self.model.jnt_qposadr[self.fixed_joint_ids[name]]] = value
         mujoco.mj_forward(self.model, self.data)

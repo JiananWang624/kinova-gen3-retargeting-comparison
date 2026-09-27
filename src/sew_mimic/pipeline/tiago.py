@@ -16,6 +16,7 @@ from ..config import CONFIG
 from ..csv_adapter import HumanCSVAdapter, load_human_trajectory_csv
 from ..sew.legacy_adapter import solve_legacy_sew_mimic
 from ..tiago import TiagoKinematics, TiagoNumericalSolver, TiagoSewGeometry, TiagoSewSolver
+from ..tiago.wrist import wrist_center
 
 
 @dataclass(frozen=True)
@@ -40,25 +41,21 @@ def sample_frame_indices(total_frames: int, *, start_frame: int = 0,
 
 
 def fixed_body_to_base_transform() -> tuple[np.ndarray, np.ndarray]:
+    """Map human data into the fixed nominal-base/world frame, not the moved robot."""
     calibration = CONFIG["tiago"]["calibration"]
     rotation = np.asarray(calibration["R_base_from_body"], dtype=float)
     calibrated = np.asarray(calibration["t_calibrated_m"], dtype=float)
-    offset = np.asarray(calibration["user_xyz_offset_base_m"], dtype=float)
-    translation = np.asarray(calibration["t_base_from_body_m"], dtype=float)
     shoulder_body = np.asarray(calibration["shoulder_reference_body_m"], dtype=float)
     shoulder_base = np.asarray(calibration["shoulder_reference_base_m"], dtype=float)
     if rotation.shape != (3, 3) or not np.all(np.isfinite(rotation)) or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-12, rtol=0) or not np.isclose(np.linalg.det(rotation), 1, atol=1e-12, rtol=0):
         raise ValueError("TIAGo R_base_from_body must be a proper 3x3 rotation")
-    for name, value in (("t_calibrated", calibrated), ("user_xyz_offset", offset),
-                        ("t_base_from_body", translation), ("shoulder_body", shoulder_body),
+    for name, value in (("t_calibrated", calibrated), ("shoulder_body", shoulder_body),
                         ("shoulder_base", shoulder_base)):
         if value.shape != (3,) or not np.all(np.isfinite(value)):
             raise ValueError(f"TIAGo {name} must be a finite length-3 vector")
     if not np.allclose(calibrated, shoulder_base - rotation @ shoulder_body, atol=1e-10, rtol=0):
         raise ValueError("TIAGo t_calibrated differs from fixed shoulder calibration")
-    if not np.allclose(translation, calibrated + offset, atol=1e-10, rtol=0):
-        raise ValueError("TIAGo t_base_from_body differs from calibrated plus user offset")
-    return rotation, translation
+    return rotation, calibrated
 
 
 def prepare_tiago_trajectory(input_path: str | Path, *, start_frame: int = 0,
@@ -67,15 +64,17 @@ def prepare_tiago_trajectory(input_path: str | Path, *, start_frame: int = 0,
     human = load_human_trajectory_csv(input_path, adapter)
     rotation, translation = fixed_body_to_base_transform()
     points = np.stack((human.shoulders, human.elbows, human.wrists), axis=1)
-    points_base = np.einsum("ij,tkj->tki", rotation, points) + translation
-    hand_base = rotation @ human.hand_orientations
+    points_world = np.einsum("ij,tkj->tki", rotation, points) + translation
+    hand_world = rotation @ human.hand_orientations
     indices = sample_frame_indices(len(human), start_frame=start_frame,
                                    max_frames=max_frames, stride=stride)
     frames = []
     task = CONFIG["task_point"]
+    if task["mode"] != "wrist" or not np.allclose(task["human_wrist_to_task_offset_m"], [0, 0, 0]):
+        raise ValueError("TIAGo wrist-center position target requires human task_point.mode=wrist and zero offset")
     for index in indices:
-        shoulder, elbow, wrist = points_base[index]
-        hand = hand_base[index]
+        shoulder, elbow, wrist = points_world[index]
+        hand = hand_world[index]
         frames.append(TiagoFrame(index, HumanArmTarget(
             shoulder, elbow, wrist, hand,
             compute_human_task_point(wrist, hand, mode=task["mode"],
@@ -93,6 +92,8 @@ def evaluate_tiago_result(frame: TiagoFrame, result: SolverResult,
         "backend": CONFIG["tiago"]["solver"]["backend"] if method == "tiago_sew" else method,
         "model_revision": CONFIG["tiago"]["menagerie_revision"],
         "calibration_revision": CONFIG["tiago"]["calibration"]["revision"],
+        "position_target_frame": CONFIG["tiago"]["task_frames"]["position"],
+        "orientation_target_frame": CONFIG["tiago"]["task_frames"]["orientation"],
         "branch_id": result.diagnostics.branch_id,
         "solve_time_ms": result.diagnostics.solve_time_ms,
         "message": result.message,
@@ -100,11 +101,16 @@ def evaluate_tiago_result(frame: TiagoFrame, result: SolverResult,
     for name, value in zip(robot.joint_names, result.q if result.q is not None else [None] * 7):
         row[name] = None if value is None else float(value)
     if result.q is None:
-        row.update(ee_position_error_mm=None, ee_orientation_error_deg=None,
-                   sew_angle_error_deg=None, joint_limit_margin_deg=None)
+        row.update(wrist_center_position_error_mm=None, ee_orientation_error_deg=None,
+                   sew_angle_error_deg=None, joint_limit_margin_deg=None,
+                   grasping_frame_position_x_m=None, grasping_frame_position_y_m=None,
+                   grasping_frame_position_z_m=None)
         return row
     position, rotation = robot.tcp_pose(result.q)
-    row["ee_position_error_mm"] = float(np.linalg.norm(position - frame.target.task_point) * 1000)
+    row["wrist_center_position_error_mm"] = float(np.linalg.norm(wrist_center(robot, result.q) - frame.target.task_point) * 1000)
+    row["grasping_frame_position_x_m"] = float(position[0])
+    row["grasping_frame_position_y_m"] = float(position[1])
+    row["grasping_frame_position_z_m"] = float(position[2])
     row["ee_orientation_error_deg"] = math.degrees(Rotation.from_matrix(rotation.T @ frame.target.hand_rotation).magnitude())
     row["sew_angle_error_deg"] = math.degrees(abs(angular_difference(
         geometry.psi(result.q), geometry.stereo.forward(

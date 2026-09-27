@@ -2,11 +2,14 @@
 tiago:
   model_path: assets/pal_tiago/tiago.xml
   fingerprint_path: assets/pal_tiago/tiago.xml
-  model_sha256: ce67d8be29f6a9f57c6ee0ba2d809f63801e13d9025de490cee8b462f3f95e3f
+  model_sha256: dc5005d1b64b87b9ddf0eba717d94b7801b91ac1d242629e3a0373a4a8bdaafb
   menagerie_revision: c96a32d
   base_frame: base_link
   arm_root_joint: arm_1_joint
   tcp_site: gripper_grasping_frame
+  task_frames:
+    position: wrist_center
+    orientation: gripper_grasping_frame
   joint_names: [arm_1_joint, arm_2_joint, arm_3_joint, arm_4_joint, arm_5_joint, arm_6_joint, arm_7_joint]
   joint_limits_rad:
     - [0.0, 2.74889]
@@ -20,17 +23,20 @@ tiago:
   baseline_proxy_signs:
     h3: -1.0
     h5: 1.0
+  placement:
+    reference_torso_lift_m: 0.15
+    j1_offset_world_m: [0.0, 0.0, -0.20]
   fixed_joints:
-    torso_lift_joint: 0.15
     head_1_joint: 0.0
     head_2_joint: 0.0
     gripper_left_finger_joint: 0.03
     gripper_right_finger_joint: 0.03
   calibration:
-    revision: median-body-4344-torso015-J1-root-v3
+    revision: median-body-4344-torso015-J1-root-robot-zminus020-v5
     reference_joint_name: arm_1_joint
     reference_pose: home_q_rad
     base_world_yaw_deg: 0.0
+    # This nominal base frame coincides with MuJoCo world before robot placement.
     R_base_from_body:
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]
@@ -38,8 +44,6 @@ tiago:
     shoulder_reference_body_m: [-0.4369135435, 0.0546565780, 0.3955541685]
     shoulder_reference_base_m: [0.09305, 0.014, 0.8875]
     t_calibrated_m: [0.5299635435, -0.0406565780, 0.4919458315]
-    user_xyz_offset_base_m: [0.0, 0.0, 0.0]
-    t_base_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
   sew:
     # Locked physical definition. The candidate list is for WARP diagnostics only.
     candidate_order: [J1/J4/wrist_center, J1/J34/wrist_center, J1/J45/wrist_center, J2/J4/wrist_center, J12/J4/wrist_center]
@@ -48,8 +52,6 @@ tiago:
     e_r: [0.0, 1.0, 0.0]
     identification:
       policy: fixed_J1_arm_root
-      validation_window: [640, 699]
-      validation_report: output/tiago_j1_validation/report.json
   solver:
     backend: tiago_semi_analytic
     position_tolerance_m: 0.001
@@ -69,6 +71,8 @@ human_csv:
     - [1.0, 0.0, 0.0]
     - [0.0, 1.0, 0.0]
   rotation_input_align:
+    # Locked capture convention: canonical hand +X is Fork rigid-body local -Y.
+    # Hand_XYZ was projected from the Fork center, not the independent Wrist marker.
     - [0.0, 1.0, 0.0]
     - [-1.0, 0.0, 0.0]
     - [0.0, 0.0, 1.0]

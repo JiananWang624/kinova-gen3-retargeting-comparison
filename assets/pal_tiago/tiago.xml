@@ -1,6 +1,6 @@
 <mujoco model="tiago">
 
-  <compiler angle="radian" meshdir="./assets/" autolimits="true" fusestatic="true"/>
+  <compiler angle="radian" meshdir="./assets/" autolimits="true" fusestatic="false"/>
 
   <option integrator="implicitfast"/>
 

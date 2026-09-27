@@ -44,8 +44,9 @@ def wrist_center(robot: TiagoKinematics, q: np.ndarray) -> np.ndarray:
 
 def decompose_wrist(robot: TiagoKinematics, q1_q4: np.ndarray,
                     target_rotation: np.ndarray, *,
-                    enforce_limits: bool = True) -> list[np.ndarray]:
-    """Enumerate actual ZXZ wrist branches, filtering limits by default."""
+                    enforce_limits: bool = True,
+                    preferred_wrist_q: np.ndarray | None = None) -> list[np.ndarray]:
+    """Enumerate actual ZXZ wrist branches, including the in-limit J6=0 family."""
     q_prefix = np.asarray(q1_q4, dtype=float)
     q_zero = np.concatenate((q_prefix, np.zeros(3)))
     zero_rotation = robot.tcp_pose(q_zero)[1]
@@ -63,11 +64,31 @@ def decompose_wrist(robot: TiagoKinematics, q1_q4: np.ndarray,
     raw = ((alpha, beta, sign7 * gamma), (alpha + np.pi, -beta, sign7 * (gamma + np.pi)))
     result: list[np.ndarray] = []
     lower, upper = robot.joint_limits[4:].T
-    for branch in raw:
+    branches = []
+    if abs(beta) <= 1e-12:
+        # At J6=0 only q5 + sign7*q7 is observable. Euler's chosen split
+        # can violate limits even when another split of the same rotation fits.
+        for turns in range(-1, 2):
+            total = alpha + sign7 * gamma + 2 * np.pi * turns
+            q5_lower = max(lower[0], min(total - sign7 * lower[2], total - sign7 * upper[2]))
+            q5_upper = min(upper[0], max(total - sign7 * lower[2], total - sign7 * upper[2]))
+            if q5_lower > q5_upper + 1e-12:
+                continue
+            choices = [(q5_lower + q5_upper) / 2]
+            if preferred_wrist_q is not None:
+                choices.insert(0, float(np.clip(preferred_wrist_q[0], q5_lower, q5_upper)))
+            for q5 in choices:
+                branches.append((q5, 0.0, sign7 * (total - q5)))
+    branches.extend(raw)
+    for branch in branches:
         wrapped = (np.asarray(branch) + np.pi) % (2 * np.pi) - np.pi
         if not enforce_limits or (np.all(wrapped >= lower - 1e-12)
                                   and np.all(wrapped <= upper + 1e-12)):
-            result.append(wrapped)
+            if not any(np.allclose(wrapped, existing, atol=1e-12, rtol=0.0) for existing in result):
+                result.append(wrapped)
+    if preferred_wrist_q is not None:
+        result.sort(key=lambda branch: float(np.linalg.norm(
+            (branch - preferred_wrist_q + np.pi) % (2 * np.pi) - np.pi)))
     return result
 
 
