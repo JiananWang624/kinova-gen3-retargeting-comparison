@@ -46,8 +46,8 @@ tiago:
     gripper_left_finger_joint: 0.03
     gripper_right_finger_joint: 0.03
   calibration:
-    revision: median-body-4344-torso015-J2-home-v2
-    reference_joint_name: arm_2_joint
+    revision: median-body-4344-torso015-J1-root-v3
+    reference_joint_name: arm_1_joint
     reference_pose: home_q_rad
     base_world_yaw_deg: 0.0
     R_base_from_body:
@@ -55,30 +55,20 @@ tiago:
       - [0.0, 1.0, 0.0]
       - [0.0, 0.0, 1.0]
     shoulder_reference_body_m: [-0.4369135435, 0.0546565780, 0.3955541685]
-    shoulder_reference_base_m: [0.21945241193369783, 0.008738796968015413, 0.8565]
-    t_calibrated_m: [0.6563659554336978, -0.045917781031984586, 0.4609458315]
+    shoulder_reference_base_m: [0.09305, 0.014, 0.8875]
+    t_calibrated_m: [0.5299635435, -0.0406565780, 0.4919458315]
     user_xyz_offset_base_m: [0.0, 0.0, 0.0]
-    t_base_from_body_m: [0.6563659554336978, -0.045917781031984586, 0.4609458315]
-    baseline_j1_arm_root:
-      revision: median-body-4344-torso015-v1
-      reference_joint_name: arm_1_joint
-      shoulder_reference_base_m: [0.09305, 0.014, 0.8875]
-      t_calibrated_m: [0.5299635435, -0.0406565780, 0.4919458315]
-      t_base_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
+    t_base_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
   sew:
+    # Locked physical definition. Other entries are only WARP diagnostics.
     candidate_order: [J1/J4/wrist_center, J1/J34/wrist_center, J1/J45/wrist_center, J2/J4/wrist_center, J12/J4/wrist_center]
-    selected: [J2, J4, wrist_center]
+    selected: [J1, J4, wrist_center]
     e_t: [-1.0, 0.0, 0.0]
     e_r: [0.0, 1.0, 0.0]
     identification:
-      calibration_seed: 20260927
-      validation_seed: 20260928
-      samples_per_split: 300
-      calibration_margin_p1: 0.16416543399760355
-      validation_margin_p1: 0.131877
-      point_continuity_p95_m: 0.00010258710959982105
-      psi_continuity_p95_rad: 0.0003262346227432377
-      jacobian_condition_p95: 66.28539434289593
+      policy: fixed_J1_arm_root
+      validation_window: [640, 699]
+      validation_report: output/tiago_j1_validation/report.json
   solver:
     # Active fast evaluation path; production qualification and full run are pending.
     backend: tiago_semi_analytic
@@ -87,7 +77,7 @@ tiago:
     sew_tolerance_rad: 0.017453292519943295
     local_max_nfev: 80
     global_max_nfev: 300
-    recovery_seeds: 128
+    recovery_seeds: 16
   warp:
     fixed_skeleton_tolerance_m: 0.001
 
