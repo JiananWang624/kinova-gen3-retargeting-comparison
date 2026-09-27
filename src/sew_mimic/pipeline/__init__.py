@@ -1,21 +1,5 @@
-"""Fixed-calibration TIAGo retargeting and evaluation."""
+"""Fixed-calibration TIAGo Pro retargeting and evaluation."""
 
-from .tiago import (
-    TiagoFrame,
-    TiagoTrajectory,
-    evaluate_tiago_result,
-    fixed_body_to_base_transform,
-    prepare_tiago_trajectory,
-    run_tiago_benchmark,
-    sample_frame_indices,
-)
+from .pro import ProFrame, ProTrajectory, evaluate_pro_result, prepare_pro_trajectory, run_pro_trajectory
 
-__all__ = [
-    "TiagoFrame",
-    "TiagoTrajectory",
-    "evaluate_tiago_result",
-    "fixed_body_to_base_transform",
-    "prepare_tiago_trajectory",
-    "run_tiago_benchmark",
-    "sample_frame_indices",
-]
+__all__ = ["ProFrame", "ProTrajectory", "evaluate_pro_result", "prepare_pro_trajectory", "run_pro_trajectory"]

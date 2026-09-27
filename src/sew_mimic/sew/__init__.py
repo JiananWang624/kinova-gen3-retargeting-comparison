@@ -1,6 +1,5 @@
 """SEW-based retargeting methods."""
 
-from .legacy_adapter import solve_legacy_sew_mimic
 from .stereo import (
     StereoSew,
     StereoSewInverseResult,
@@ -13,5 +12,4 @@ __all__ = [
     "StereoSewInverseResult",
     "StereoSewReference",
     "StereoSewSingularityError",
-    "solve_legacy_sew_mimic",
 ]

@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "tiago-sew-retargeting"
@@ -10,7 +10,6 @@ dependencies = [
   "numpy",
   "scipy",
   "pandas",
-  "matplotlib",
   "mujoco==3.1.6",
   "PyYAML",
 ]
@@ -18,5 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["src/sew_mimic"]
+build-dir = "build/{wheel_tag}"

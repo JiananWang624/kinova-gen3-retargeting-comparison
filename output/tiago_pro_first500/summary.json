@@ -1,0 +1,36 @@
+{
+  "window": {
+    "frames": 500,
+    "strict_success": 494,
+    "solver_failure_without_oracle_proof": 6,
+    "p50_ms": 0.2172000240534544,
+    "p95_ms": 0.23141501587815583,
+    "iterations_p50": 0.0,
+    "iterations_p95": 0.0,
+    "longest_success_segment": 492,
+    "joint_step_p95_rad": 0.04795844339213064
+  },
+  "heldout": null,
+  "calibration_revision": "pro-rx90-y020-v1",
+  "model_sha256": "262886d0d7fe441c888ed9420228a851ddf295fd57c98d1a2072996d12104b5e",
+  "placement": {
+    "reference_shoulder_world_m": [
+      0.09305,
+      0.014,
+      0.8875
+    ],
+    "robot_world_offset_m": [
+      0.0,
+      0.2,
+      0.0
+    ],
+    "mounting_roll_deg": 90.0,
+    "mounting_pitch_deg": 0.0,
+    "mounting_yaw_deg": 0.0
+  },
+  "window_frames": [
+    0,
+    499
+  ],
+  "heldout_frames": []
+}

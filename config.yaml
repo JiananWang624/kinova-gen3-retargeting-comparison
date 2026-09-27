@@ -1,67 +1,63 @@
-# Sole runtime configuration for fixed-base, single-arm TIAGo Steel.
-tiago:
-  model_path: assets/pal_tiago/tiago.xml
-  fingerprint_path: assets/pal_tiago/tiago.xml
-  model_sha256: dc5005d1b64b87b9ddf0eba717d94b7801b91ac1d242629e3a0373a4a8bdaafb
-  menagerie_revision: c96a32d
-  base_frame: base_link
-  arm_root_joint: arm_1_joint
-  tcp_site: gripper_grasping_frame
+# Fixed-base TIAGo Pro right-arm retargeting configuration.
+tiago_pro:
+  model_path: assets/pal_tiago_pro_arm/tiago_pro_arm.xml
+  model_sha256: 262886d0d7fe441c888ed9420228a851ddf295fd57c98d1a2072996d12104b5e
+  sources:
+    pal_sea_arm: 78b544fd2d96b8edbc2472e68f653ea5cce15423
+    pal_pro_gripper: ed9445716b9534b6d387d88eaf88f0bcb781b5cd
+    tiago_pro_robot: 59eff25559b0f071ac5cf6d3c4c72c2e33b8951a
+    pal_mjlab: fb3802e53f64dec7946d5a8c1b9bbc2267985887
+  arm_type: tiago-pro
+  wrist_model: spherical-wrist
+  tool_changer: true
+  limits_v2: false
+  joint_names: [arm_right_1_joint, arm_right_2_joint, arm_right_3_joint, arm_right_4_joint, arm_right_5_joint, arm_right_6_joint, arm_right_7_joint]
+  joint_limits_deg:
+    - [-270.0, 30.0]
+    - [-140.0, 65.0]
+    - [-150.0, 150.0]
+    - [-140.0, 65.0]
+    - [-90.0, 210.0]
+    - [-108.0, 172.0]
+    - [-140.0, 140.0]
   task_frames:
-    position: wrist_center
-    orientation: gripper_grasping_frame
-  joint_names: [arm_1_joint, arm_2_joint, arm_3_joint, arm_4_joint, arm_5_joint, arm_6_joint, arm_7_joint]
-  joint_limits_rad:
-    - [0.0, 2.74889]
-    - [-1.5708, 1.09083]
-    - [-3.53429, 1.5708]
-    - [-0.392699, 2.35619]
-    - [-2.0944, 2.0944]
-    - [-1.41372, 1.41372]
-    - [-2.0944, 2.0944]
-  home_q_rad: [1.374445, -0.239985, -0.981745, 0.9817455, 0.0, 0.0, 0.0]
-  baseline_proxy_signs:
-    h3: -1.0
-    h5: 1.0
+    position: arm_right_tool_link
+    orientation: gripper_right_grasping_link
+    gripper_base: gripper_right_base_link
   placement:
-    reference_torso_lift_m: 0.15
-    j1_offset_world_m: [0.0, 0.0, -0.20]
-  fixed_joints:
-    head_1_joint: 0.0
-    head_2_joint: 0.0
-    gripper_left_finger_joint: 0.03
-    gripper_right_finger_joint: 0.03
+    # Robust human shoulder in the fixed Pro/MuJoCo world frame.
+    reference_shoulder_world_m: [0.09305, 0.014, 0.8875]
+    # Fixed standalone-arm J1 placement relative to that shoulder (world XYZ).
+    robot_world_offset_m: [0.0, 0.20, 0.0]
+    # Locked human-right-arm mounting: rotate the fixed root, not Pro joints.
+    mounting_roll_deg: 90.0
+    mounting_pitch_deg: 0.0
+    mounting_yaw_deg: 0.0
+  viewer:
+    camera_lookat_offset_m: [0.0, -0.2, 0.0]
+    camera_distance_m: 1.8
+    camera_azimuth_deg: 145.0
+    camera_elevation_deg: -18.0
   calibration:
-    revision: median-body-4344-torso015-J1-root-robot-zminus020-v5
-    reference_joint_name: arm_1_joint
-    reference_pose: home_q_rad
-    base_world_yaw_deg: 0.0
-    # This nominal base frame coincides with MuJoCo world before robot placement.
-    R_base_from_body:
+    revision: pro-rx90-y020-v1
+    shoulder_reference_body_m: [-0.4369135435, 0.0546565780, 0.3955541685]
+    R_world_from_body:
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]
       - [0.0, 0.0, 1.0]
-    shoulder_reference_body_m: [-0.4369135435, 0.0546565780, 0.3955541685]
-    shoulder_reference_base_m: [0.09305, 0.014, 0.8875]
-    t_calibrated_m: [0.5299635435, -0.0406565780, 0.4919458315]
+    t_world_from_body_m: [0.5299635435, -0.0406565780, 0.4919458315]
   sew:
-    # Locked physical definition. The candidate list is for WARP diagnostics only.
-    candidate_order: [J1/J4/wrist_center, J1/J34/wrist_center, J1/J45/wrist_center, J2/J4/wrist_center, J12/J4/wrist_center]
-    selected: [J1, J4, wrist_center]
+    selected: [J1, J4, arm_right_tool_link]
     e_t: [-1.0, 0.0, 0.0]
     e_r: [0.0, 1.0, 0.0]
-    identification:
-      policy: fixed_J1_arm_root
   solver:
-    backend: tiago_semi_analytic
+    backend: pro_7d_cpp
     position_tolerance_m: 0.001
     orientation_tolerance_rad: 0.017453292519943295
     sew_tolerance_rad: 0.017453292519943295
-    local_max_nfev: 80
-    global_max_nfev: 300
-    recovery_seeds: 16
-  warp:
-    fixed_skeleton_tolerance_m: 0.001
+    local_max_iterations: 80
+    recovery_max_iterations: 160
+    recovery_seeds: 40
 
 human_csv:
   input_path: data/test.csv

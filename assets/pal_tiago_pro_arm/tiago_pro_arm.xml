@@ -1,0 +1,111 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="tiago_pro_right_arm_only">
+  <compiler angle="radian" meshdir="meshes" autolimits="true" fusestatic="false" />
+  <default>
+    <default class="tiago_pro">
+      <site size="0.01" group="5" rgba="1 0 0 1" />
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" />
+      </default>
+      <default class="collision">
+        <geom type="capsule" material="bright_orange" contype="1" conaffinity="1" group="3" />
+      </default>
+    </default>
+  </default>
+  <asset>
+    <material name="very_dark_gray" rgba="0.1 0.1 0.1 1" />
+    <material name="dark_gray" rgba="0.25098 0.25098 0.25098 1" />
+    <material name="light_gray" rgba="0.75294 0.75294 0.75294 1" />
+    <material name="light_blue_gray" rgba="0.79216 0.81961 0.93333 1" />
+    <material name="bright_orange" rgba="1 0.65 0 0.2" />
+    <material name="dark_medium_gray" rgba="0.29804 0.29804 0.29804 1" />
+    <material name="very_light_blue_gray" rgba="0.894118 0.913725 0.929412 1" />
+    <material name="white" rgba="1 1 1 1" />
+    <material name="black" rgba="0 0 0 1" />
+    <mesh name="arm_base_link" file="arm/arm_base_link.stl" />
+    <mesh name="arm_1_link" file="arm/arm_1_link.stl" />
+    <mesh name="arm_2_link" file="arm/arm_2_link.stl" />
+    <mesh name="arm_3_link" file="arm/arm_3_link.stl" />
+    <mesh name="arm_4_link" file="arm/arm_4_link.stl" />
+    <mesh name="arm_5_link" file="arm/spherical-wrist/arm_5_link.stl" />
+    <mesh name="arm_6_link" file="arm/spherical-wrist/arm_6_link.stl" />
+    <mesh name="arm_7_link" file="arm/spherical-wrist/arm_7_link.stl" />
+    <mesh name="base_link_tc" file="gripper/base_link_tc.stl" />
+    <mesh name="inner_finger" file="gripper/inner_finger.stl" />
+    <mesh name="outer_finger" file="gripper/outer_finger.stl" />
+    <mesh name="fingertip" file="gripper/fingertip.stl" />
+  </asset>
+  <worldbody>
+    <body name="arm_base" childclass="tiago_pro">
+      <site name="arm_base_site" size="0.008" />
+      <geom class="visual" mesh="arm_base_link" material="dark_medium_gray" />
+      <body name="arm_right_1_link" pos="0 0 0" quat="1 0 0 0">
+        <inertial pos="0.0043916 0.016184 0.15576" quat="0.995877 -0.0736287 -0.0165883 0.0503316" mass="1.1325" diaginertia="0.00255401 0.00238017 0.000938535" />
+        <joint name="arm_right_1_joint" range="-4.7123889803846897 0.52359877559829882" actuatorfrcrange="-43 43" frictionloss="1" axis="0 0 1" />
+        <geom class="visual" material="dark_medium_gray" mesh="arm_1_link" />
+        <body name="arm_right_2_link" pos="0.037109999999999498 0.02 0.17999999999999999" quat="0.50000000000000089 -0.4999999999999975 0.49999999999999922 -0.50000000000000255">
+          <inertial pos="0.01786 -0.11956 -0.032097" quat="0.372627 0.555033 -0.540311 0.51103" mass="1.0436" diaginertia="0.00163669 0.00151951 0.000828169" />
+          <joint name="arm_right_2_joint" range="-2.4434609527920612 1.1344640137963142" actuatorfrcrange="-43 43" frictionloss="1" axis="0 0 1" />
+          <geom class="visual" material="dark_medium_gray" mesh="arm_2_link" />
+          <body name="arm_right_3_link" pos="0.019999999999999001 -0.17011000000000001 -0.037110000000001003" quat="0.70710678118654635 0.70710678118654879 0 0">
+            <inertial pos="0.016184 -0.0043916 0.13565" quat="0.668601 0.0403336 0.0637931 0.739781" mass="1.1325" diaginertia="0.00255401 0.00238017 0.000938535" />
+            <joint name="arm_right_3_joint" range="-2.6179938779914944 2.6179938779914944" actuatorfrcrange="-26 26" frictionloss="1" axis="0 0 1" />
+            <geom class="visual" material="dark_medium_gray" mesh="arm_3_link" />
+            <body name="arm_right_4_link" pos="0.0199999999999993 -0.037110000000000802 0.15989" quat="0.7071067811865499 0.70710678118654513 0 0">
+              <inertial pos="-0.01786 0.11956 -0.032097" quat="0.540311 0.51103 -0.372627 0.555033" mass="1.0436" diaginertia="0.00163669 0.00151951 0.000828169" />
+              <joint name="arm_right_4_joint" range="-2.4434609527920612 1.1344640137963142" actuatorfrcrange="-26 26" frictionloss="1" axis="0 0 1" />
+              <geom class="visual" material="dark_medium_gray" mesh="arm_4_link" />
+              <body name="arm_right_5_link" pos="-0.0199999999999971 0.17011000000000001 -0.037110000000002002" quat="0.00056308801719946787 -0.00056308801719946982 0.70710655698549651 0.70710655698549896">
+                <inertial pos="-0.00017 -0.02738 0.06749" quat="0.699157 -0.105734 0.105734 0.699157" mass="0.31298" diaginertia="0.00165763 0.00157 0.000312375" />
+                <joint name="arm_right_5_joint" range="-1.5707963267948966 3.6651914291880923" actuatorfrcrange="-26 26" frictionloss="1" axis="0 0 1" />
+                <geom class="visual" material="dark_medium_gray" mesh="arm_5_link" />
+                <body name="arm_right_6_link" pos="0 -0.042200000000000001 0.16539999999999999" quat="0.00056308698302962989 -0.00056308905136740828 -0.70710785565801193 0.70710525831059823">
+                  <inertial pos="0.0317652 -0.00651511 -0.0408045" quat="0.649802 0.62025 0.320219 0.300842" mass="1.34587" diaginertia="0.00126618 0.00118982 0.000997639" />
+                  <joint name="arm_right_6_joint" axis="0 0 -1" range="-1.8849555921538759 3.001966313430247" actuatorfrcrange="-26 26" frictionloss="1" />
+                  <geom class="visual" material="dark_medium_gray" mesh="arm_6_link" />
+                  <body name="arm_right_7_link" pos="0.070000000000000007 -0.053400000000000003 -0.042200000000000001" quat="0.70710548251123628 0.70710807985947355 0 0">
+                    <inertial pos="0.00174 -0.00223 0.0083" quat="0.5 0.5 -0.5 0.5" mass="0.12399" diaginertia="0.00012 8e-05 6e-05" />
+                    <joint name="arm_right_7_joint" range="-2.4434609527920612 2.4434609527920612" actuatorfrcrange="-26 26" frictionloss="1" axis="0 0 1" />
+                    <geom class="visual" material="dark_medium_gray" mesh="arm_7_link" />
+                    <body name="arm_right_tool_link" pos="0 0 0.017000000000000001" quat="1 0 0 0">
+                      <site name="arm_right_tool_link" size="0.008" />
+                      <body name="gripper_right_base_link">
+                        <site name="gripper_right_base_link" size="0.008" />
+                        <geom class="visual" material="dark_medium_gray" mesh="base_link_tc" />
+                        <body name="gripper_right_inner_finger_left_link" pos="0 -0.013977 0.078831999999999999" quat="0.253401 0.660141 -0.253406 -0.660141">
+                          <inertial pos="0 0.024759 0" quat="0.5 0.5 -0.5 0.5" mass="0.018619" diaginertia="4.9573e-06 4.8806e-06 2.5471e-07" />
+                          <geom class="visual" material="light_gray" mesh="inner_finger" />
+                          <body name="gripper_right_fingertip_left_link" pos="0 0.05 0" quat="0.913545 0 0 0.406738">
+                            <inertial pos="-0.000864586 0.011929 -2.73244e-11" quat="0.704565 0.704565 0.0599056 0.0599056" mass="0.033503" diaginertia="3.69751e-06 2.84428e-06 1.65117e-06" />
+                            <geom class="visual" material="light_gray" mesh="fingertip" />
+                          </body>
+                        </body>
+                        <body name="gripper_right_outer_finger_left_link" pos="0 -0.028799999999999999 0.074300000000000005" quat="0.253401 0.660141 -0.253406 -0.660141">
+                          <inertial pos="-0.00128298 0.0143975 0" quat="0.522876 0.476026 -0.522876 0.476026" mass="0.0159888" diaginertia="6.14973e-06 6.03691e-06 4.38203e-07" />
+                          <geom class="visual" material="light_gray" mesh="outer_finger" />
+                        </body>
+                        <body name="gripper_right_inner_finger_right_link" pos="0 0.013977 0.078831999999999999" quat="0.66014 0.253404 0.660142 0.253404">
+                          <inertial pos="0 0.024759 0" quat="0.5 0.5 -0.5 0.5" mass="0.018619" diaginertia="4.9573e-06 4.8806e-06 2.5471e-07" />
+                          <geom class="visual" material="light_gray" mesh="inner_finger" />
+                          <body name="gripper_right_fingertip_right_link" pos="0 0.05 0" quat="0.913545 0 0 0.406738">
+                            <inertial pos="-0.000864586 0.011929 -2.73244e-11" quat="0.704565 0.704565 0.0599056 0.0599056" mass="0.033503" diaginertia="3.69751e-06 2.84428e-06 1.65117e-06" />
+                            <geom class="visual" material="light_gray" mesh="fingertip" />
+                          </body>
+                        </body>
+                        <body name="gripper_right_outer_finger_right_link" pos="0 0.028799999999999999 0.074300000000000005" quat="0.66014 0.253404 0.660142 0.253404">
+                          <inertial pos="-0.00128298 0.0143975 0" quat="0.522876 0.476026 -0.522876 0.476026" mass="0.0159888" diaginertia="6.14973e-06 6.03691e-06 4.38203e-07" />
+                          <geom class="visual" material="light_gray" mesh="outer_finger" />
+                        </body>
+                        <site name="gripper_right_grasping_link" pos="0 0 0.157157" quat="0.70738826916719977 0 -0.70682518110536596 0" size="0.008" />
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

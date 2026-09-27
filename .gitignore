@@ -6,12 +6,12 @@ __pycache__/
 
 tmp/
 
-# Regenerable validation outputs. Existing tracked diagnostic artifacts remain tracked.
-output/*.csv
-output/*.json
-output/baseline_metrics.csv
-output/comparison_frames.csv
-output/comparison_summary.json
+# Generated experiments are ignored by default. Keep the current replay
+# checkpoint visible to Git for an explicit future commit.
+output/*
+!output/tiago_pro_first500/
+!output/tiago_pro_first500/summary.json
+!output/tiago_pro_first500/window_frames.csv
 
 # Local reports and tool caches.
 .coverage

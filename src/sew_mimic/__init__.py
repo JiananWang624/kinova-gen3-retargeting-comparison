@@ -1,1 +1,1 @@
-"""TIAGo Steel SEW retargeting package."""
+"""Fixed-base TIAGo Pro right-arm SEW retargeting."""

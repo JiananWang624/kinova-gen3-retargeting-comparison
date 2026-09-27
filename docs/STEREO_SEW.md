@@ -6,19 +6,20 @@ half-plane. The reference is an explicit orthonormal pair `(e_t,e_r)`;
 `e_t` determines the stereographic singular half-line and `e_r` fixes the
 zero/sign convention for the wrapped redundancy angle `psi`.
 
-The TIAGo production definition is fixed in `config.yaml`:
+The TIAGo Pro engineering task definition is fixed in `config.yaml`:
 
 ```text
 S = J1 arm-root anchor
 E = J4 anchor
-W = validated common J5/J6/J7 wrist center
+W = arm_right_tool_link position (human Wrist task correspondence)
 e_t = [-1, 0, 0]
 e_r = [ 0, 1, 0]
 ```
 
-Human S/E/W are transformed by the same stored rigid body-world-to-base
-transform before computing target `psi`; the robot points come directly from
-MuJoCo joint geometry. The solver does not select S/E/W based on IK success.
+Human S/E/W use the same stored body-world to MuJoCo-world rigid transform
+before computing target `psi`; the robot points come directly from
+MuJoCo joint geometry. W is not a physical spherical-wrist center. The solver
+does not select S/E/W based on IK success.
 The returned angle is wrapped to `[-pi,pi]`, and comparisons use a wrapped
 angular difference. Degenerate shoulder-wrist or shoulder-elbow directions,
 collinear S/E/W, and the stereographic pole raise explicit singularity errors.

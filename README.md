@@ -1,155 +1,67 @@
-# TIAGo Steel arm retargeting
+# TIAGo Pro right-arm retargeting
 
-For the short, authoritative map of human-data semantics, coordinate frames,
-SEW points, task frames, and historical traps, read [TIAGO_CONTEXT.md](TIAGO_CONTEXT.md) first.
+This branch uses one fixed-base, arm-only **TIAGo Pro right arm** with the PAL Pro gripper. Only `arm_right_1_joint` through `arm_right_7_joint` are solved. The robot model, C++ solver, benchmark and replay are Pro-only; no Steel whole-body or Gen3 runtime path remains. The MJCF is a kinematic/visualization model, not a collision or dynamics model. Official-source pins, generation details and license are in [PROJECT_PATCHES.md](assets/pal_tiago_pro_arm/PROJECT_PATCHES.md).
 
-This repository retargets a human arm trajectory to the fixed-base, single-arm
-**TIAGo Steel** MuJoCo model. The only optimized joints are `arm_1_joint` through
-`arm_7_joint`; under the current placement torso lift is fixed at 0 m, head at
-neutral, and each parallel gripper finger at 0.030 m. The fixed base origin is
-5 cm below the MuJoCo ground plane and never moves per frame. The position
-task aligns the validated J5/J6/J7 spherical wrist center with human
-`Wrist_X/Y/Z`; the orientation task aligns the model's
-`gripper_grasping_frame` with the transformed human wrist Euler orientation.
-The grasping frame's position is diagnostic, not a human-wrist position target.
+## Locked task and placement
 
-The model and assets are vendored from [MuJoCo Menagerie `pal_tiago`](https://github.com/google-deepmind/mujoco_menagerie/tree/main/pal_tiago)
-at commit `c96a32d` (v2026.9.2). See [the model notes](assets/pal_tiago/README.md),
-[project patches](assets/pal_tiago/PROJECT_PATCHES.md), and
-[license](assets/pal_tiago/LICENSE). The grasping site follows the
-[PAL gripper definition](https://github.com/pal-robotics/pal_gripper/blob/humble-devel/pal_gripper_description/urdf/gripper.urdf.xacro).
+| Input | Pro target |
+|---|---|
+| Human `Wrist_X/Y/Z` | `arm_right_tool_link` **position** |
+| Canonical hand orientation | `gripper_right_grasping_link` **orientation** |
+| Human shoulder/elbow/wrist | Stereo-SEW with robot S=J1, E=J4, W=`arm_right_tool_link` |
 
-## Fixed geometry and calibration
+`W=tool_link` is an engineering SEW point matched to the human wrist position, not a physical spherical-wrist center. Pro J6/J7 axes are 70 mm apart; the former Steel spherical-wrist analytic decomposition does **not** apply. The task is solved as seven variables/seven constraints by a stateful C++ solver; MuJoCo independently checks returned solutions. Strict acceptance is tool position `<1 mm`, grasp orientation `<1°`, Stereo-SEW `<1°`, and all physical joint limits.
 
-`config.yaml` is the runtime authority. The CSV adapter first converts the
-human data into body-world coordinates. One stored rigid transform then maps
-every frame into the nominal TIAGo base frame, which coincides with MuJoCo
-world before robot placement:
+The current fixed placement in [config.yaml](config.yaml) is:
 
-```text
-p_nominal_world = R_base_from_body @ p_body + t_calibrated_m
-H_nominal_world = R_base_from_body @ H_body
+```yaml
+reference_shoulder_world_m: [0.09305, 0.014, 0.8875]
+robot_world_offset_m: [0.0, 0.20, 0.0]
+mounting_roll_deg: 90.0
+mounting_pitch_deg: 0.0
+mounting_yaw_deg: 0.0
 ```
 
-The current rotation is identity. The robust median human shoulder is
-`[-0.4369135435, 0.0546565780, 0.3955541685]` m in body-world; the TIAGo
-J1 arm-root is `[0.09305, 0.014, 0.8875]` m at the reference torso pose. Their
-one-time alignment gives `t_calibrated_m = [0.5299635435, -0.0406565780,
-0.4919458315]` m. Human targets retain this transform. The fixed robot-side
-`tiago.placement.j1_offset_world_m = [0,0,-0.20]` m lowers J1 relative to
-its reference pose: torso lift goes from 0.15 m to 0, and the fixed base
-origin goes from ground level to -0.05 m. Normal comparison and replay never
-recalibrate or move the base per frame. This below-ground placement is a
-kinematic experiment, not a collision-safe physical mounting proposal.
+Thus `J1_world = reference_shoulder_world + robot_world_offset = [0.09305, 0.214, 0.8875] m`. `Rx(+90°)` rotates only the fixed arm root, following the old Gen3 human-right-arm experiment layout. It is **not** the official whole-robot torso mount. Neither the base nor human calibration moves per frame. These placement values are locked for the current experiment; they are not a claim of globally optimal mounting.
 
-Placement decomposes the requested J1 offset by using the torso's legal range
-first. For Z, `torso = clip(reference_torso + offset_z, 0, 0.35)` m; the base
-then receives the remaining `offset_z - (torso - reference_torso)`. X/Y
-offsets go directly to the fixed base. This rule is shared by the kinematics
-model and validation oracle.
+Human CSV positions are millimetres and use the fixed body-world transform. `Wrist_Rx/Ry/Rz` are extrinsic XYZ **degrees** from a hand-held Fork rigid body. The orientation chain is:
 
-`tiago.task_frames` names the two robot evaluation frames explicitly:
-`position: wrist_center` (the verified J5/J6/J7 common center) and
-`orientation: gripper_grasping_frame`. `task_point.mode: wrist` selects the
-human CSV wrist position; `Hand_X/Y/Z` is not used. Strict acceptance uses
-`<1 mm` wrist-center position, `<1°` grasping-frame orientation, `<1°`
-Stereo-SEW, and physical joint limits.
+```text
+p_body  = R_body_from_csv @ (0.001 * p_csv_mm)
+H_body  = R_body_from_csv @ R_wrist_csv @ R_input_align
+p_world = R_world_from_body @ p_body + t_world_from_body
+H_world = R_world_from_body @ H_body
+```
 
-The CSV `Wrist_Rx/Ry/Rz` are the hand-mounted Fork rigid-body orientation,
-exported as extrinsic XYZ Euler angles in degrees. The capture convention
-locks canonical hand `+X` to Fork local `-Y` through `R_input_align` in
-`config.yaml`; it is not fitted from TIAGo IK success. `Hand_X/Y/Z` is a
-virtual point, `p_fork + R_fork @ [0,-0.1,0]` m. CSV `Wrist_X/Y/Z` is a
-separate marker, so `Hand - Wrist` is not that forward vector. The virtual
-Hand point is useful only for visualization and coordinate-consistency checks,
-not as an independent calibration observation.
+`R_body_from_csv` and `R_input_align` are in `config.yaml`. The latter maps canonical hand +X to Fork local −Y, the captured forward direction. Do not refit it using IK outcomes or add an unverified robot-side orientation alignment. `Hand_X/Y/Z` is a *virtual* point projected from the Fork center by `R_fork @ [0,−0.1,0] m`; `Wrist_X/Y/Z` is a separate marker. Consequently `Hand − Wrist` is **not** a forward-direction measurement.
 
-The locked Stereo-SEW points are **S=J1 arm-root, E=J4 anchor, W=the validated
-spherical-wrist center**. The reference pair is `e_t=[-1,0,0]`, `e_r=[0,1,0]`.
-The former J1/J2 placement experiment did **not** compare these shoulder
-definitions: it changed the alignment while keeping `S=J2`. It is not used
-to select the final geometry.
+## Install and manual inspection
 
-## Methods
+装配查看、指定帧数计算及 MuJoCo 回放的可复制指令另见 [COMMANDS.md](COMMANDS.md)。
 
-| Role | Implementation | Status |
-|---|---|---|
-| Method 0 | TIAGo SEW-Mimic baseline | Executable comparison |
-| Method 1 | Generic WARP corrected-skeleton core | Diagnostic only: selected TIAGo fixed skeleton fails invariance |
-| Method 2 | `tiago_sew`, stateful semi-analytic IK | Active fast path |
-| Method 3 | Independent MuJoCo/SciPy numerical oracle | Validation only |
-
-Method 2 numerically solves J1–J4 for wrist-center position and Stereo-SEW,
-then enumerates exact spherical-wrist branches for J5–J7. A real-model
-geometric hard gate must pass before this backend starts. If an analytic wrist
-branch just exceeds a physical limit, one bounded local 7D correction is
-allowed; every returned solution is checked against MuJoCo wrist-center
-position, grasping-frame orientation, SEW, and joint-limit thresholds. There is
-no silent per-frame oracle or numerical-backend fallback. The separate
-`tiago_numerical` backend remains a
-correctness reference and possible fallback candidate, not the active path.
-
-## Install and run
-
-Use Python 3.11 and MuJoCo 3.1.6 from the repository root:
+Use Python 3.11 from the repository root:
 
 ```powershell
 py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e .[test]
-.venv\Scripts\python.exe -m pytest -q tests/test_tiago_core.py
+.venv\Scripts\python.exe -m pytest -q tests/test_tiago_pro_arm.py tests/test_human_input.py tests/test_stereo_sew.py tests/test_solver_contracts.py tests/test_geometry.py
 ```
 
-The default CLI processes a bounded number of frames without an oracle:
+View the fixed root at q=0 without running IK:
 
 ```powershell
-.venv\Scripts\python.exe scripts\compare_tiago.py --start-frame 144 --max-frames 32 --output-dir output\tiago_run
-.venv\Scripts\python.exe scripts\replay_tiago.py --results output\tiago_run\comparison_frames.csv --max-frames 32 --no-viewer
+.venv\Scripts\python.exe scripts\show_tiago_pro_mounting.py --frame 0
 ```
 
-Omit `--no-viewer` to view the fixed full robot, human overlay, S/E/W, human
-wrist target, robot wrist center, and grasping frame in MuJoCo. Replay
-independently recomputes and checks saved errors from MuJoCo FK. To inspect
-calibration and placement without an IK run:
+Compute and replay exactly the first 100, 500, 1000 or 2000 frames by setting `--count N` and `--max-frames N` to the same value. Runs above 100 frames require `--manual-long-run` **in both commands**; this keeps focused automated validation bounded.
 
 ```powershell
-.venv\Scripts\python.exe -m sew_mimic.tiago.calibration --check
-.venv\Scripts\python.exe scripts\diagnose_tiago_placement.py
+.venv\Scripts\python.exe scripts\benchmark_tiago_pro.py --start-frame 0 --count 500 --manual-long-run --output output\tiago_pro_first500
+.venv\Scripts\python.exe scripts\replay_tiago_pro.py --results output\tiago_pro_first500\window_frames.csv --max-frames 500 --manual-long-run
 ```
 
-The placement diagnostic writes a 3D plot and JSON report. Add `--viewer` for
-an interactive full-robot point-cloud view. `calibration --write` is the only
-explicit command that rewrites stored model/calibration values; it preserves
-the locked J1/J4/wrist-center SEW definition.
+`--no-viewer` on replay validates saved rows against independent MuJoCo FK without opening a window. Failed frames hold the last valid arm pose in Viewer and show a red target; the arm's held pose is **not** a solved pose for those frames. The mounting Viewer shows world/base/J1/tool/target frames, human shoulder–elbow–hand segments and colored points; only the hand carries a text label. The purple sphere is robot J4 (elbow), not an extra target.
 
-## Bounded validation and limits
+The retained [500-frame result](output/tiago_pro_first500/summary.json) records the current placement and calibration revision: **494/500 strict successes**, six solver failures without oracle proof, longest success segment 492 frames, and P50/P95 solve times about **0.22/0.23 ms** on the machine used. Timing is machine-dependent. This is a bounded manual-visualization run, not full-dataset coverage. A solver miss cannot be distinguished from infeasibility without a successful independent oracle; failed search alone does not prove unreachability.
 
-The same consecutive CSV frames 0–199 were compared before and after the
-task-frame correction at the former zero user offset, with fixed calibration
-and SEW. Strict successes rose
-from **3/200** (old TCP-position target) to **32/200** (new wrist-center target),
-forming one continuous solved run, frames 144–175. Solve-time P50/P95 changed
-from **140/203 ms** to **173/218 ms**. Across the new run's 31 adjacent solved
-pairs, P95 maximum wrapped-joint step was **1.13°/frame**. Maximum independently
-recomputed errors were **0.819 mm wrist-center position, 0.366° grasping-frame
-orientation, and 0.0063° SEW**. The 168 remaining failures have not been proven
-unreachable. Four targeted failed-frame oracle probes found exact solutions
-only after relaxing limits; finite search cannot prove no in-limit solution.
-Those historical comparison results are in `output/tiago_wrist_center_200/`.
-
-In the historical human-target `+0.20 m` Z-offset run, the production
-semi-analytic backend returned strict solutions on **690/2000 (34.5%)** of
-CSV frames 0–1999. P50/P95 solve time was **264/617 ms**. The other 1310
-frames are `oracle_inconclusive`, not proven unreachable; no oracle was run.
-Results are in `output/tiago_z020_first2000/`. Success varied sharply between
-100-frame blocks, so the earlier 95/100 placement-scan window must not be
-treated as a full-trajectory success estimate. The current fixed robot-side
-J1 `-0.20 m` placement is geometrically equivalent for arm FK and relative
-target pose, but the 2000-frame solver has not been rerun under this config.
-Replay rejects results saved with an earlier calibration revision.
-
-The committed [older J1 validation report](output/tiago_j1_validation/report.json)
-uses the *previous* TCP-position task and is retained only as historical
-evidence of calibration, SEW geometry, and the wrist hard gate. Its success
-counts and pose errors must not be compared with the new task definition.
-No full 4,344-frame retargeting or all-data oracle sweep was performed. See
-[HANDOFF.md](HANDOFF.md) for engineering details and remaining limits.
+For implementation details, limitations, and migration history, read [HANDOFF.md](HANDOFF.md). Stereo-SEW math is documented in [STEREO_SEW.md](docs/STEREO_SEW.md).
