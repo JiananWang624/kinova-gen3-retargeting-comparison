@@ -73,7 +73,8 @@ class _TiagoSolverBase:
             seeds.append(rng.uniform(lower, upper))
         return seeds
 
-    def _valid_result(self, q: np.ndarray, target: TiagoSewTarget, started: float, branch: str) -> SolverResult | None:
+    def _valid_result(self, q: np.ndarray, target: TiagoSewTarget, started: float, branch: str,
+                      *, commit: bool = True) -> SolverResult | None:
         position = wrist_center(self.robot, q)
         rotation = self.robot.tcp_pose(q)[1]
         position_error = float(np.linalg.norm(position - target.position))
@@ -89,7 +90,8 @@ class _TiagoSolverBase:
         if np.any((q < self.robot.joint_limits[:, 0] - 1e-12) |
                   (q > self.robot.joint_limits[:, 1] + 1e-12)):
             return None
-        self.previous_q = q.copy()
+        if commit:
+            self.previous_q = q.copy()
         margin = float(np.min(np.minimum(q - self.robot.joint_limits[:, 0], self.robot.joint_limits[:, 1] - q)))
         return SolverResult(self.method, SolverStatus.SUCCESS_EXACT, q,
                             SolverDiagnostics(position_error_m=position_error,
@@ -107,8 +109,10 @@ class _TiagoSolverBase:
 class TiagoSewSolver(_TiagoSolverBase):
     """Four-dimensional arm solve, exact wrist branches, then one boundary correction."""
 
-    def __init__(self, robot: TiagoKinematics, geometry: TiagoSewGeometry):
+    def __init__(self, robot: TiagoKinematics, geometry: TiagoSewGeometry,
+                 *, prefer_joint_limit_margin: bool = False):
         super().__init__(robot, geometry)
+        self.prefer_joint_limit_margin = prefer_joint_limit_margin
         if geometry.selection[2] != "wrist_center":
             raise ValueError("TIAGo semi-analytic solve requires SEW W at the spherical wrist center")
         gate = validate_spherical_wrist(robot, samples=1000)
@@ -155,13 +159,28 @@ class TiagoSewSolver(_TiagoSolverBase):
             branches = [(index, branch) for index, branch in enumerate(analytic_branches)
                         if np.all(branch >= wrist_lower - 1e-12)
                         and np.all(branch <= wrist_upper + 1e-12)]
-            if previous is not None:
+            if previous is not None and not self.prefer_joint_limit_margin:
                 branches.sort(key=lambda item: float(np.linalg.norm((item[1] - previous[4:] + np.pi) % (2 * np.pi) - np.pi)))
+            accepted = []
             for branch_number, branch in branches:
                 result = self._valid_result(np.r_[fit.x, branch], target, started,
-                                            f"seed-{number}-wrist-{branch_number}")
+                                            f"seed-{number}-wrist-{branch_number}",
+                                            commit=not self.prefer_joint_limit_margin)
                 if result is not None:
-                    return result
+                    if not self.prefer_joint_limit_margin:
+                        return result
+                    accepted.append(result)
+            if accepted:
+                limits = self.robot.joint_limits
+                def rank(result: SolverResult) -> tuple[float, float, float]:
+                    margin = np.minimum(result.q - limits[:, 0], limits[:, 1] - result.q)
+                    continuity = 0.0 if previous is None else float(np.linalg.norm(
+                        (result.q - previous + np.pi) % (2 * np.pi) - np.pi))
+                    return float(np.min(margin[[4, 6]])), float(np.min(margin)), -continuity
+                chosen = max(accepted, key=rank)
+                self.previous_q = chosen.q.copy()
+                chosen.diagnostics.solve_time_ms = (time.perf_counter() - started) * 1000
+                return chosen
             for branch_number, branch in enumerate(analytic_branches):
                 if np.any((branch < wrist_lower - 1e-12) | (branch > wrist_upper + 1e-12)):
                     projected = np.clip(branch, wrist_lower, wrist_upper)

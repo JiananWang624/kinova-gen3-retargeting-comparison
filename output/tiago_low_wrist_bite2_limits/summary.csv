@@ -1,0 +1,13 @@
+frame,event,wrist_height_world_m,physical_found,relaxed_found,violated_joints_deg,semi_analytic_status
+246,transfer,0.5391029055,False,True,arm_4_joint 5.65; arm_5_joint 57.79,NUMERICAL_FAILURE
+257,transfer,0.5757935565,False,True,arm_4_joint 12.27; arm_5_joint 58.65,NUMERICAL_FAILURE
+268,transfer,0.6300454405,False,True,arm_4_joint 17.39; arm_5_joint 58.05,NUMERICAL_FAILURE
+279,transfer,0.6756038515,False,True,arm_4_joint 14.59,NUMERICAL_FAILURE
+290,transfer,0.7002297365,False,True,arm_4_joint 9.95,NUMERICAL_FAILURE
+301,transfer,0.7161315155,False,True,arm_4_joint 5.59,NUMERICAL_FAILURE
+502,withdrawal,0.7157329715,False,True,arm_4_joint 15.56,NUMERICAL_FAILURE
+510,withdrawal,0.6862464755,False,True,arm_4_joint 23.16; arm_6_joint 6.56,NUMERICAL_FAILURE
+519,withdrawal,0.6569936985,False,True,arm_4_joint 25.88; arm_6_joint 19.78,NUMERICAL_FAILURE
+528,withdrawal,0.6391824495,False,True,arm_4_joint 25.93; arm_6_joint 29.00,NUMERICAL_FAILURE
+537,withdrawal,0.6318393405,False,True,arm_4_joint 25.83; arm_6_joint 35.48,NUMERICAL_FAILURE
+546,withdrawal,0.6317978515,False,True,arm_4_joint 25.72; arm_6_joint 38.70,NUMERICAL_FAILURE

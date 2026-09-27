@@ -120,6 +120,37 @@ was not changed. Per-offset summaries and frame-level results are in
 `scripts/scan_tiago_fixed_placement.py`. No oracle was run, so solver failures
 are not proven physically unreachable.
 
+A follow-up fixed-base-yaw scan rotated `base_link` about its world-positioned
+origin by -20/-10/0/+10/+20 degrees with offset [0,0,-0.20] m unchanged.
+Strict counts on the same 301 frames were 92/112/118/117/104 respectively;
+all five solved 0/101 low-wrist frames and retained a near-zero minimum J7
+limit margin. The best nonzero yaw was +10 degrees, one success below yaw=0.
+An experimental, opt-in wrist-branch selector that ranks strictly valid
+solutions by minimum J5/J7 margin, then overall margin, then continuity was
+compared at yaw=0 and +10. Both runs produced exactly the same per-frame
+statuses and joint vectors as their original-solver controls. Among the 118
+yaw=0 successes, no frame had a second strict in-limit wrist branch for its
+selected J1-J4 prefix. Production yaw and solver selection remain unchanged.
+Results are in `output/tiago_yaw_bite2/`; no oracle or other trajectory was run.
+
+A subsequent limit-focused diagnostic used twelve equally spaced low-wrist
+failures from bite 2 (six transfer, six withdrawal). An independent MuJoCo/7D
+oracle with 128 physical-limit starts found 0/12 strict solutions; with the
+existing relaxed range [-2π,2π] and 64 starts it found 12/12, all satisfying
+the original wrist-center, full-orientation, and Stereo-SEW thresholds.
+The first strict relaxed solution exceeded the J4 upper limit by 5.6–25.9°
+on every frame; J5 exceeded its lower limit by about 58° on the first three
+transfer frames, J6 exceeded its lower limit by 6.6–38.7° on four withdrawal
+frames, and J7 was not violated in these relaxed solutions. A separate local
+7D search seeded by clipping each relaxed solution to physical limits also
+found 0/12 strict solutions. This is strong qualitative evidence of a
+joint-range bottleneck in these sampled low-wrist poses, especially J4, but
+finite search cannot prove that physical-limit solutions do not exist.
+It does not support a specific, stable J5/J7-only explanation. See
+`output/tiago_low_wrist_bite2_limits/` and
+`scripts/diagnose_tiago_low_wrist_limits.py`; production settings were not
+changed.
+
 With capture alignment held fixed, a focused semi-analytic probe on failed
 frames 0, 143, 176, 180, and 199 found one converged J1–J4 solution family
 per frame and enumerated both nonsingular wrist branches. The closer branch

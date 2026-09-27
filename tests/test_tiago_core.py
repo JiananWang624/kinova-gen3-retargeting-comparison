@@ -132,6 +132,32 @@ def test_singular_wrist_enumerates_in_limit_j5_j7_split():
     assert result.diagnostics.orientation_error_rad < 1e-10
 
 
+def test_margin_aware_selection_prefers_strict_wrist_branch_with_more_room():
+    robot = TiagoKinematics()
+    geometry = TiagoSewGeometry(robot)
+    q = np.array([0.38737777725871436, 0.036152952703981445,
+                  0.5790625712967681, 2.235124505691486,
+                  1.5193836155339424, -0.8082256524403765,
+                  1.829919719819173])
+    target = TiagoSewTarget(wrist_center(robot, q), robot.tcp_pose(q)[1], geometry.psi(q))
+    original = TiagoSewSolver(robot, geometry)
+    original.previous_q = q.copy()
+    preferred = TiagoSewSolver(robot, geometry, prefer_joint_limit_margin=True)
+    preferred.previous_q = q.copy()
+    first = original.solve(target)
+    second = preferred.solve(target)
+    assert first.q is not None and second.q is not None
+    limits = robot.joint_limits
+    def wrist_margin(candidate):
+        margins = np.minimum(candidate - limits[:, 0], limits[:, 1] - candidate)
+        return min(margins[4], margins[6])
+    assert wrist_margin(second.q) > wrist_margin(first.q) + np.deg2rad(10)
+    for result in (first, second):
+        assert result.diagnostics.position_error_m < 0.001
+        assert result.diagnostics.orientation_error_rad < np.deg2rad(1)
+        assert result.diagnostics.sew_error_rad < np.deg2rad(1)
+
+
 def test_validation_oracle_uses_separate_mujoco_data():
     robot = TiagoKinematics()
     geometry = TiagoSewGeometry(robot)

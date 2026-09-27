@@ -1,0 +1,423 @@
+{
+  "input": "F:\\code\\sew_mimic_repro\\data\\test.csv",
+  "baseline_results": "F:\\code\\sew_mimic_repro\\output\\tiago_yaw_bite2\\yaw_000\\placement_frames.csv",
+  "frames": [
+    246,
+    257,
+    268,
+    279,
+    290,
+    301,
+    502,
+    510,
+    519,
+    528,
+    537,
+    546
+  ],
+  "robot_offset_world_m": [
+    0.0,
+    0.0,
+    -0.2
+  ],
+  "base_yaw_deg": 0,
+  "task_frames": {
+    "position": "wrist_center",
+    "orientation": "gripper_grasping_frame"
+  },
+  "sew_selection": [
+    "J1",
+    "J4",
+    "wrist_center"
+  ],
+  "physical_seeds": 128,
+  "relaxed_seeds": 64,
+  "relaxed_bounds_rad": [
+    -6.283185307179586,
+    6.283185307179586
+  ],
+  "physical_found_count": 0,
+  "relaxed_found_count": 12,
+  "details": [
+    {
+      "frame": 246,
+      "event": "transfer",
+      "wrist_height_world_m": 0.5391029055,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.0909620861675922,
+      "physical_search_s": 6.153215499944054,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 1.654107075307101e-13,
+      "relaxed_search_s": 0.012942500063218176,
+      "relaxed_q_rad": [
+        0.07220966936683135,
+        -1.160328675390473,
+        -1.1105079700485092,
+        2.4547340040184715,
+        -3.103023711084031,
+        1.1995850749646748,
+        0.6492234275346103
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 3.726042658597513e-11,
+        "gripper_orientation_deg": 4.51395158266112e-11,
+        "stereo_sew_deg": 9.694330669100799e-12
+      },
+      "violations_deg": {
+        "arm_4_joint": 5.646155526578656,
+        "arm_5_joint": 57.7898817619375
+      }
+    },
+    {
+      "frame": 257,
+      "event": "transfer",
+      "wrist_height_world_m": 0.5757935565,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.09518934790827975,
+      "physical_search_s": 7.798635200015269,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 4.450083282408912e-16,
+      "relaxed_search_s": 0.014162600040435791,
+      "relaxed_q_rad": [
+        0.3185648726575331,
+        -1.0771313794377175,
+        -1.2790893647351238,
+        2.5703713666797223,
+        -3.1180063453806057,
+        1.0331584703935432,
+        0.8597632542775315
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 3.0688430113079397e-13,
+        "gripper_orientation_deg": 5.192856277787721e-14,
+        "stereo_sew_deg": 7.63333123551244e-14
+      },
+      "violations_deg": {
+        "arm_4_joint": 12.27168836109202,
+        "arm_5_joint": 58.64832347311919
+      }
+    },
+    {
+      "frame": 268,
+      "event": "transfer",
+      "wrist_height_world_m": 0.6300454405,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.106050053710341,
+      "physical_search_s": 5.408609600039199,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 1.6975242500612595e-16,
+      "relaxed_search_s": 0.01618779997806996,
+      "relaxed_q_rad": [
+        0.7170506999313868,
+        -0.8437282310216402,
+        -1.6256579847983623,
+        2.659681776208026,
+        -3.107648041097242,
+        0.8025565187299765,
+        1.1204635691537843
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 1.3877787807814457e-13,
+        "gripper_orientation_deg": 2.800554514709044e-14,
+        "stereo_sew_deg": 0.0
+      },
+      "violations_deg": {
+        "arm_4_joint": 17.388797893648782,
+        "arm_5_joint": 58.05483635477015
+      }
+    },
+    {
+      "frame": 279,
+      "event": "transfer",
+      "wrist_height_world_m": 0.6756038515,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.08099317821011896,
+      "physical_search_s": 4.605353299994022,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 1.9263141825933554e-15,
+      "relaxed_search_s": 0.020346499979496002,
+      "relaxed_q_rad": [
+        0.9690393693674181,
+        -0.5999084408651864,
+        -1.8783616798532046,
+        2.6108273453847914,
+        0.1141919117099834,
+        -0.6624531272404295,
+        -1.8845343991873003
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 3.152427400121712e-13,
+        "gripper_orientation_deg": 5.44408531495107e-13,
+        "stereo_sew_deg": 0.0
+      },
+      "violations_deg": {
+        "arm_4_joint": 14.589645196963614
+      }
+    },
+    {
+      "frame": 290,
+      "event": "transfer",
+      "wrist_height_world_m": 0.7002297365,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.05311424887752029,
+      "physical_search_s": 4.1809796000598,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 1.6498024537943046e-16,
+      "relaxed_search_s": 0.02039590000640601,
+      "relaxed_q_rad": [
+        1.0969614873663138,
+        -0.4756321048783208,
+        -1.9710566015252595,
+        2.5298141751346828,
+        0.15847974924612865,
+        -0.59039469430876,
+        -1.8374918415585897
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 1.1188630228279524e-13,
+        "gripper_orientation_deg": 2.3643323445855783e-14,
+        "stereo_sew_deg": 2.5444437451708134e-14
+      },
+      "violations_deg": {
+        "arm_4_joint": 9.947932456657586
+      }
+    },
+    {
+      "frame": 301,
+      "event": "transfer",
+      "wrist_height_world_m": 0.7161315155,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.02953505320904044,
+      "physical_search_s": 3.927905199932866,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 4.643596095005844e-12,
+      "relaxed_search_s": 0.013920400058850646,
+      "relaxed_q_rad": [
+        1.1922935935036738,
+        -0.403943025698585,
+        -2.015151374545412,
+        2.4538406373674975,
+        0.1769705303402437,
+        -0.5601974828250402,
+        -1.8317503901640233
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 5.996843544636755e-10,
+        "gripper_orientation_deg": 1.294049475179237e-09,
+        "stereo_sew_deg": 2.561237073888941e-10
+      },
+      "violations_deg": {
+        "arm_4_joint": 5.594969387920105
+      }
+    },
+    {
+      "frame": 502,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.7157329715,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.08251968756804029,
+      "physical_search_s": 7.01054320007097,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 2.0233250820439516e-14,
+      "relaxed_search_s": 0.014650000026449561,
+      "relaxed_q_rad": [
+        1.0689986289638709,
+        -0.4558799186562877,
+        -2.063899984066241,
+        2.6278491509916555,
+        -0.24830128717500213,
+        -1.2657614925375997,
+        -1.7288605352192485
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 8.670597047386014e-12,
+        "gripper_orientation_deg": 4.489305992069068e-12,
+        "stereo_sew_deg": 2.697110369881062e-12
+      },
+      "violations_deg": {
+        "arm_4_joint": 15.564922817929045
+      }
+    },
+    {
+      "frame": 510,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.6862464755,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.12466880511803885,
+      "physical_search_s": 13.955696500022896,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 1.9901290854715428e-16,
+      "relaxed_search_s": 0.0166060000192374,
+      "relaxed_q_rad": [
+        0.9410477138559634,
+        -0.6282094856886464,
+        -1.955789530108481,
+        2.7604130599608667,
+        -0.34339176429613616,
+        -1.5281680384494987,
+        -1.7374755225182374
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 1.3877787807814457e-13,
+        "gripper_orientation_deg": 3.197575416040236e-14,
+        "stereo_sew_deg": 2.5444437451708134e-14
+      },
+      "violations_deg": {
+        "arm_4_joint": 23.160275317621288,
+        "arm_6_joint": 6.557389576707239
+      }
+    },
+    {
+      "frame": 519,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.6569936985,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.14036327386703837,
+      "physical_search_s": 8.394702699966729,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 7.293603187574284e-12,
+      "relaxed_search_s": 0.012714399956166744,
+      "relaxed_q_rad": [
+        0.8007058860371916,
+        -0.8143376510879445,
+        -1.7515431284381615,
+        2.8079585447416315,
+        -0.5055767814056992,
+        -1.7590328480882749,
+        -1.8437590337673662
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 4.1259248165684666e-09,
+        "gripper_orientation_deg": 1.691612484456024e-09,
+        "stereo_sew_deg": 3.274190211285803e-10
+      },
+      "violations_deg": {
+        "arm_4_joint": 25.8844309304626,
+        "arm_6_joint": 19.78496880710028
+      }
+    },
+    {
+      "frame": 528,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.6391824495,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.13570270576902171,
+      "physical_search_s": 9.276674700086005,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 6.645734729758278e-12,
+      "relaxed_search_s": 0.013113299966789782,
+      "relaxed_q_rad": [
+        0.6956738020264082,
+        -0.9252398766070689,
+        -1.5847171757393903,
+        2.8087572111393624,
+        -0.6174632014453725,
+        -1.91983121315382,
+        -1.9828280821567512
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 3.15344821089472e-09,
+        "gripper_orientation_deg": 1.6717325575400753e-09,
+        "stereo_sew_deg": 1.1780774540140866e-10
+      },
+      "violations_deg": {
+        "arm_4_joint": 25.930191144291495,
+        "arm_6_joint": 28.998036477959875
+      }
+    },
+    {
+      "frame": 537,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.6318393405,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.13608249425340302,
+      "physical_search_s": 9.003055899986066,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 3.443338485847912e-16,
+      "relaxed_search_s": 0.014956400031223893,
+      "relaxed_q_rad": [
+        0.6609002085449781,
+        -0.9740510814331123,
+        -1.5037319195804963,
+        2.806938527412403,
+        -0.737181587520315,
+        -2.0329580106365595,
+        -2.0663950886232274
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 2.3724523730670964e-13,
+        "gripper_orientation_deg": 5.0216458046244976e-14,
+        "stereo_sew_deg": 5.088887490341627e-14
+      },
+      "violations_deg": {
+        "arm_4_joint": 25.825988242467588,
+        "arm_6_joint": 35.47972452355203
+      }
+    },
+    {
+      "frame": 546,
+      "event": "withdrawal",
+      "wrist_height_world_m": 0.6317978515,
+      "semi_analytic_status": "NUMERICAL_FAILURE",
+      "physical_found": false,
+      "physical_best_residual_norm": 0.13871892098081232,
+      "physical_search_s": 9.115119900088757,
+      "physical_q_rad": null,
+      "physical_errors": null,
+      "relaxed_found": true,
+      "relaxed_best_residual_norm": 3.7409803825177893e-16,
+      "relaxed_search_s": 0.014910300029441714,
+      "relaxed_q_rad": [
+        0.6929344960802981,
+        -0.9766956749010692,
+        -1.5058731004722121,
+        2.805170981711343,
+        -0.7696665409315044,
+        -2.0892491430113944,
+        -1.9992929894510754
+      ],
+      "relaxed_errors": {
+        "wrist_position_mm": 2.0407899217551514e-13,
+        "gripper_orientation_deg": 4.7337225269298765e-14,
+        "stereo_sew_deg": 7.63333123551244e-14
+      },
+      "violations_deg": {
+        "arm_4_joint": 25.724715333700356,
+        "arm_6_joint": 38.70496883264231
+      }
+    }
+  ]
+}
