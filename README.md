@@ -1,14 +1,21 @@
 # Kinova Gen3 Retargeting Comparison
 
-This repository compares three independently tested retargeting methods for the
-fixed-base Kinova Gen3 7-DoF arm, retaining SEW-Mimic as the regression baseline
-and including a numerical Exact-SEW validation oracle. Human
+This repository keeps four retargeting roles separate for the fixed-base Kinova
+Gen3 7-DoF arm: the original SEW-Mimic baseline, a generic WARP-cSEW
+reproduction, the production Exact-SEW solver, and a numerical validation
+oracle. Human
 shoulder/elbow/wrist geometry and hand orientation are converted to robot joint
 configurations and evaluated with the real MuJoCo-derived `pinch_site` forward
 kinematics.
 
 The recommended Gen3 method is **Method 2: Exact-SEW**. The original SEW-Mimic
 implementation remains unchanged as the regression baseline.
+
+> **Coding-agent entry point:** read [HANDOFF.md](HANDOFF.md) before changing
+> source. It records the current production path, non-negotiable coordinate
+> conventions, acceptance thresholds, WARP boundary, test state, and file map.
+> Treat code, tests, and `config.yaml` as the final authority when a historical
+> phase document differs.
 
 ## Methods and capabilities
 
@@ -41,7 +48,10 @@ src/sew_mimic/
 ```
 
 Method 2 uses one stateful compiled event solver per trajectory. It applies
-strict MuJoCo-derived pinch-site acceptance and never falls back to Method 3.
+MuJoCo-derived pinch-site acceptance (`<1 mm` position, `<1 degree` aligned
+orientation, and `<1 degree` Stereo-SEW error) and never falls back to Method 3.
+`SUCCESS_EXACT` means all constraints claimed by that method passed their
+documented post-validation thresholds; it does not mean mathematical zero.
 
 ## Installation on Windows
 
@@ -53,7 +63,23 @@ py -3.11 -m venv .venv
 ```
 
 Run commands from the repository root. The scripts add `src/` to their import
-path; no package installation step is required.
+path for Python modules, but the editable installation above is required to
+build the private `_exact_sew_core` extension used by Method 2.
+
+## Conventions that must remain stable
+
+- The robot is physically fixed-base; never move its root per frame to make a
+  target reachable.
+- Human targets are transformed into the native Gen3 base frame before solving.
+- The default task point is `Wrist_X/Y/Z`; no anatomical palm offset is assumed.
+- Final pose metrics use MuJoCo `pinch_site` FK and the established
+  `R_robot_align`, never display geometry.
+- Stereo-SEW uses `e_t = [0, 0, -1]` and `e_r = [1, 0, 0]`.
+- CSV rotation, mounting, Gen3 axes, and the negative h3/h5 proxy signs are
+  validated conventions, not tuning parameters.
+
+See [HANDOFF.md](HANDOFF.md) for the exact transform chain and configuration
+values.
 
 ## Validate
 
@@ -209,4 +235,5 @@ Visualization offsets never affect targets, solver inputs, or metrics.
 - [Generic WARP core and compatibility](docs/WARP_CSEW_CORE.md)
 - [Unified comparison](docs/RETARGETING_COMPARISON.md)
 - [MuJoCo replay](docs/MUJOCO_RETARGETING_VISUALIZATION.md)
+- [Final engineering report](docs/FINAL_ENGINEERING_REPORT.md)
 - [Engineering handoff](HANDOFF.md)
