@@ -101,10 +101,12 @@ class _TiagoSolverBase:
 
 
 class TiagoSewSolver(_TiagoSolverBase):
-    """Four-dimensional arm solve followed by exact spherical-wrist branches."""
+    """Four-dimensional arm solve, exact wrist branches, then one boundary correction."""
 
     def __init__(self, robot: TiagoKinematics, geometry: TiagoSewGeometry):
         super().__init__(robot, geometry)
+        if geometry.selection[2] != "wrist_center":
+            raise ValueError("TIAGo semi-analytic solve requires SEW W at the spherical wrist center")
         gate = validate_spherical_wrist(robot, samples=1000)
         if not gate.passed:
             raise ValueError(f"TIAGo semi-analytic wrist hard gate failed: {gate.reason}; {gate}")
@@ -116,17 +118,29 @@ class TiagoSewSolver(_TiagoSolverBase):
         started = time.perf_counter()
         target_center = target.position - target.rotation @ self.offset_in_tool
         lower, upper = self.robot.joint_limits[:4].T
+        wrist_lower, wrist_upper = self.robot.joint_limits[4:].T
         previous = self.previous_q
+        boundary_seed: tuple[float, int, int, np.ndarray] | None = None
 
         def residual(prefix: np.ndarray) -> np.ndarray:
             q = np.concatenate((prefix, np.zeros(3)))
-            center = wrist_center(self.robot, q)
+            points = self.robot.sew_points(q, self.geometry.selection)
             try:
-                psi = self.geometry.psi(q)
+                psi = self.geometry.stereo.forward(points.shoulder, points.elbow, points.wrist)
                 psi_error = angular_difference(psi, target.psi)
             except StereoSewSingularityError:
                 psi_error = math.pi
-            return np.r_[center - target_center, 0.2 * psi_error]
+            return np.r_[points.wrist - target_center, 0.2 * psi_error]
+
+        def pose_residual(q: np.ndarray) -> np.ndarray:
+            position, rotation = self.robot.tcp_pose(q)
+            orientation_error = Rotation.from_matrix(rotation.T @ target.rotation).as_rotvec()
+            try:
+                psi_error = angular_difference(self.geometry.psi(q), target.psi)
+            except StereoSewSingularityError:
+                psi_error = math.pi
+            return np.r_[position - target.position, 0.2 * orientation_error,
+                         0.2 * psi_error]
 
         for number, seed in enumerate(self._seeds(4)):
             fit = least_squares(residual, seed, bounds=(lower, upper),
@@ -135,19 +149,41 @@ class TiagoSewSolver(_TiagoSolverBase):
                                 xtol=1e-11, ftol=1e-11, gtol=1e-11)
             if float(np.linalg.norm(fit.fun)) > 0.005:
                 continue
-            branches = decompose_wrist(self.robot, fit.x, target.rotation)
+            analytic_branches = decompose_wrist(self.robot, fit.x, target.rotation,
+                                                 enforce_limits=False)
+            branches = [(index, branch) for index, branch in enumerate(analytic_branches)
+                        if np.all(branch >= wrist_lower - 1e-12)
+                        and np.all(branch <= wrist_upper + 1e-12)]
             if previous is not None:
-                branches.sort(key=lambda branch: float(np.linalg.norm((branch - previous[4:] + np.pi) % (2 * np.pi) - np.pi)))
-            for branch_number, branch in enumerate(branches):
+                branches.sort(key=lambda item: float(np.linalg.norm((item[1] - previous[4:] + np.pi) % (2 * np.pi) - np.pi)))
+            for branch_number, branch in branches:
                 result = self._valid_result(np.r_[fit.x, branch], target, started,
                                             f"seed-{number}-wrist-{branch_number}")
                 if result is not None:
                     return result
-        return self._failure(started, "no in-limit q1–q4 and analytic wrist branch met strict TCP/SEW tolerances")
+            for branch_number, branch in enumerate(analytic_branches):
+                if np.any((branch < wrist_lower - 1e-12) | (branch > wrist_upper + 1e-12)):
+                    projected = np.clip(branch, wrist_lower, wrist_upper)
+                    candidate = np.r_[fit.x, projected]
+                    score = float(np.linalg.norm(pose_residual(candidate)))
+                    if boundary_seed is None or score < boundary_seed[0]:
+                        boundary_seed = (score, number, branch_number, candidate)
+        if boundary_seed is not None:
+            _, seed_number, branch_number, candidate = boundary_seed
+            refined = least_squares(pose_residual, candidate,
+                                    bounds=self.robot.joint_limits.T,
+                                    max_nfev=int(self.settings["local_max_nfev"]),
+                                    xtol=1e-11, ftol=1e-11, gtol=1e-11)
+            result = self._valid_result(refined.x, target, started,
+                                        f"seed-{seed_number}-wrist-{branch_number}-boundary")
+            if result is not None:
+                result.diagnostics.metadata["solver_stage"] = "analytic_wrist_boundary_refinement"
+                return result
+        return self._failure(started, "no exact or boundary-refined wrist branch met strict TCP/SEW tolerances")
 
 
 class TiagoNumericalSolver(_TiagoSolverBase):
-    """Independent seven-variable TIAGo production candidate."""
+    """Independent seven-variable TIAGo validation and fallback candidate."""
 
     def solve(self, target: TiagoSewTarget) -> SolverResult:
         started = time.perf_counter()

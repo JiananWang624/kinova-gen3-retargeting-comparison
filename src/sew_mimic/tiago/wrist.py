@@ -42,8 +42,10 @@ def wrist_center(robot: TiagoKinematics, q: np.ndarray) -> np.ndarray:
     return anchors[5]
 
 
-def decompose_wrist(robot: TiagoKinematics, q1_q4: np.ndarray, target_rotation: np.ndarray) -> list[np.ndarray]:
-    """Enumerate the two regular ZXZ branches for actual J5/J6/J7 axes."""
+def decompose_wrist(robot: TiagoKinematics, q1_q4: np.ndarray,
+                    target_rotation: np.ndarray, *,
+                    enforce_limits: bool = True) -> list[np.ndarray]:
+    """Enumerate actual ZXZ wrist branches, filtering limits by default."""
     q_prefix = np.asarray(q1_q4, dtype=float)
     q_zero = np.concatenate((q_prefix, np.zeros(3)))
     zero_rotation = robot.tcp_pose(q_zero)[1]
@@ -63,7 +65,8 @@ def decompose_wrist(robot: TiagoKinematics, q1_q4: np.ndarray, target_rotation: 
     lower, upper = robot.joint_limits[4:].T
     for branch in raw:
         wrapped = (np.asarray(branch) + np.pi) % (2 * np.pi) - np.pi
-        if np.all(wrapped >= lower - 1e-12) and np.all(wrapped <= upper + 1e-12):
+        if not enforce_limits or (np.all(wrapped >= lower - 1e-12)
+                                  and np.all(wrapped <= upper + 1e-12)):
             result.append(wrapped)
     return result
 

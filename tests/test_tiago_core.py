@@ -94,3 +94,20 @@ def test_warp_diagnostic_does_not_claim_executable_fixed_skeleton():
     selected = [row for row in report["candidate_diagnostics"] if row["selected_for_production"]]
     assert len(selected) == 1
     assert selected[0]["shoulder_variation_m"] > report["tolerance_m"]
+
+
+def test_semi_analytic_boundary_refinement_recovers_strict_csv_targets():
+    trajectory = prepare_tiago_trajectory("data/test.csv")
+    solver = TiagoSewSolver(trajectory.robot, trajectory.geometry)
+    solver.settings = dict(solver.settings)
+    solver.settings["recovery_seeds"] = 16
+    for frame_id in (688, 1677, 2967):
+        frame = trajectory.frames[frame_id]
+        result = solver.solve(trajectory.geometry.target(frame.target))
+        assert result.q is not None, (frame_id, result.message)
+        assert result.diagnostics.branch_id.endswith("-boundary")
+        assert result.diagnostics.position_error_m < 0.001
+        assert result.diagnostics.orientation_error_rad < np.deg2rad(1)
+        assert result.diagnostics.sew_error_rad < np.deg2rad(1)
+        assert np.all(result.q >= trajectory.robot.joint_limits[:, 0] - 1e-12)
+        assert np.all(result.q <= trajectory.robot.joint_limits[:, 1] + 1e-12)
